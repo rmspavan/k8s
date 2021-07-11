@@ -1,0 +1,9 @@
+- hosts: all
+  become: yes
+
+  tasks:
+   - name: Install Packages
+     yum: 
+      name: ["vim", "git", "vi", "lsof", "curl", "wget", "unzip"] 
+      update_cache: yes 
+      state: latest
