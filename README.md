@@ -173,3 +173,13 @@ Add Role
 kubectl label node <node name> node-role.kubernetes.io/<role name>=<key - (any name)>
 
 kubectl label node kubernetes-worker1 node-role.kubernetes.io/worker1=worker1
+  
+  kubectl get node --show-labels
+  
+kubectl get pod -owide all-namespaces
+  
+kubectl get node -owide
+
+  Kubectl token create --print-join-command
+
+ 
