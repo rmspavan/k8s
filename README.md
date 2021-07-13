@@ -182,4 +182,311 @@ kubectl get node -owide
 
   Kubectl token create --print-join-command
 
+  
+AWX Install on K8S:
+  
+install the helm to manage to create the database pod:
+  $ curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+$ chmod 700 get_helm.sh
+$ ./get_helm.sh
+  
+Create Separate Cluster Context for AWX:
+  $ mkdir -p /home/ansible/.kube/custom-contexts/awx-config/
+$ cd /home/ansible/.kube/custom-contexts/awx-config/
+  
+Creating Certificates:
+  $ openssl genrsa -out ansible.key 4096
+  $ openssl req -new -newkey rsa:4096 -nodes -keyout ansible.key -out ansible.csr -subj "/CN=ansible/O=system:authenticated"
+  $ sudo openssl x509 -req -in ansible.csr -CA /etc/kubernetes/pki/ca.crt -CAkey /etc/kubernetes/pki/ca.key -CAcreateserial -out ansible.crt -days 365
+  to verify
+  $ openssl x509  -noout -text -in /home/ansible/.kube/custom-contexts/awx-config/ansible.crt
+  
+  
+Create Namespace for AWX
+  # kubectl create namespace awx
+  cat > awx_cluster_config.yml
+---
+apiVersion: v1
+kind: Config
+preferences: {}
+
+clusters:
+- cluster:
+  name: awxcls
+
+contexts:
+- context:
+  name: awx-contx
+
+users:
+- name: root
+
  
+Add context details to the configuration file.
+
+KUBECONFIG=awx_cluster_config.yml kubectl config set-cluster awxcls --server=https://192.168.0.115:6443 --client-certificate=/home/ansible/.kube/custom-contexts/awx-config/ansible.crt --client-key=/home/ansible/.kube/custom-contexts/awx-config/ansible.key
+
+KUBECONFIG=awx_cluster_config.yml kubectl config set-credentials ansible --client-certificate=/home/ansible/.kube/custom-contexts/awx-config/ansible.crt --client-key=/home/ansible/.kube/custom-contexts/awx-config/ansible.key
+
+KUBECONFIG=awx_cluster_config.yml kubectl config set-context awx-contx --cluster awxcls --namespace=awx --user ansible
+
+  
+  
+Now the custom config file will looks like below. (certificate-authority-data: –> This value can be get from exiting config $ sudo cat /etc/kubernetes/admin.conf file)
+
+# vi ~/.kube/custom-contexts/awx-config/awx_cluster_config.yml
+  apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM1ekNDQWMrZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc 
+    server: https://192.168.0.42:6443
+  name: awxcls
+contexts:
+- context:
+    cluster: awxcls
+    namespace: awx
+    user: ansible
+  name: awx-contx
+current-context: ""
+kind: Config
+preferences: {}
+users:
+- name: ansible
+  user:
+    client-certificate-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUR6VENDQXJVQ0ZCNWJOTmFmU1c4Um9RblpxQlVreGNDZ25sTy9NQTBHQ1NxR=
+    client-key-data: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUpRd0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQ1Mwd2dna3BBZ0VBQW9o=
+  
+Custom Context Env:
+  # vim ~/.bashrc
+  # Set the default Kube context if present
+DEFAULT_KUBE_CONTEXTS="$HOME/.kube/config"
+if test -f "${DEFAULT_KUBE_CONTEXTS}"
+then
+  export KUBECONFIG="$DEFAULT_KUBE_CONTEXTS"
+fi
+# Additional contexts should be in ~/.kube/custom-contexts/ 
+CUSTOM_KUBE_CONTEXTS="$HOME/.kube/custom-contexts"
+mkdir -p "${CUSTOM_KUBE_CONTEXTS}"
+OIFS="$IFS"
+IFS=$'\n'
+for contextFile in `find "${CUSTOM_KUBE_CONTEXTS}" -type f -name "*.yml"`  
+do
+    export KUBECONFIG="$contextFile:$KUBECONFIG"
+done
+IFS="$OIFS"
+  
+$ source ~/.bashrc (Source it activate the multi context switching)
+  
+ $ kubectl config get-contexts (to check avalible contexts)
+
+define a role under the awx namespace:
+  
+<!--$ kubectl create role ansible-role --namespace=awx --verb=create --verb=get --verb=list --verb=update --verb=delete --resource=pods -o yaml --dry-run=client  > role.yaml -->
+  
+vi role.yml
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ansible-role
+  namespace: awx
+rules:
+- apiGroups:
+  - ""
+  - extensions
+  - apps
+  resources:
+  - "*"
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - delete
+  - patch
+...
+
+$ kubectl create -f role.yaml
+$ kubectl describe role -n awx ansible-role
+  
+Create RoleBinding:
+$ kubectl create rolebinding ansible-rolebinding --role=ansible-role --user=ansible -n awx
+$ kubectl describe rolebindings.rbac.authorization.k8s.io -n awx ansible-rolebinding
+
+########Creating PersistentVolume:
+We are going to use the NFS as our storage solution, install the NFS client package and list the exported share from the NFS server. If you have installed as part of resolve dependencies, ignore. In case, If you are looking to set up an NFS server look at this How to Setup NFS Server on CentOS 8.
+
+The share we are about to create in NFS server should have below NFS options, replace with your UID and GID and it should match on all the k8s nodes.
+
+/k8sdata *(rw,all_squash,anonuid=1001,anongid=1001)
+List the exported NFS shares.
+
+ansible@awx1:~$ showmount -e 192.168.0.155
+Export list for 192.168.0.55:
+/nfspub   *
+/k8sdata  (everyone)
+/nfslimit 192.168.0.[42-44]/24
+/nfsshare (everyone)
+ansible@awx1:~$
+As part of AWX installer, the PersistentVolumeClaim will be created, However, it will be in a pending state if we don’t have a persistent Volume, So let’s create one.
+
+$ cat > persistentVolume_k8sdata.yaml
+Create a file and append the YAML content.
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: k8sdata
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: dbstorageclass
+  mountOptions:
+    - hard
+    - nfsvers=4.2
+  nfs:
+    path: /k8sdata
+    server: 192.168.0.55
+...
+Let’s create the PV
+
+$ kubectl create -f persistentVolume_k8sdata.yaml
+Right after creating it, let’s verify.
+
+ansible@awx1:~$ kubectl get persistentvolumes 
+NAME      CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS     REASON   AGE
+k8sdata   10Gi       RWO            Retain           Available           dbstorageclass            12s
+ansible@awx1:~$
+Creating PersistentVolumeClaim
+Create a persistent volume claim for PostgreSQL database.
+
+$ cat > postgrespvc.yaml
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgrespvc
+  namespace: awx
+spec:
+  storageClassName: dbstorageclass
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+...
+We are good to move forward.
+
+ansible@awx1:~$ kubectl get pvc
+NAME          STATUS   VOLUME    CAPACITY   ACCESS MODES   STORAGECLASS     AGE
+postgrespvc   Bound    k8sdata   10Gi       RWO            dbstorageclass   5s
+#####################################
+  
+  
+Switching to AWX Context:
+$ kubectl config get-contexts
+$ kubectl config use-context awx-contx
+$ kubectl config current-context
+  
+$ kubectl config use-context awx-contx
+Switched to context "awx-contx".
+
+$ kubectl config current-context 
+awx-contx
+
+Downloading AWX:
+  $ wget https://github.com/ansible/awx/archive/*.*.*.zip or git clone -b "*.*.*" https://github.com/ansible/awx.git
+$ unzip 14.1.0.zip
+$ cd awx/
+
+  $vi installer/inventory
+  localhost ansible_connection=local ansible_python_interpreter="/usr/bin/env python3"
+
+[all:vars]
+
+dockerhub_base=ansible
+
+# Kubernetes Install
+kubernetes_context=awx-contx
+kubernetes_namespace=awx
+kubernetes_web_svc_type=NodePort
+#Optional Kubernetes Variables
+pg_image_registry=docker.io
+pg_serviceaccount=awx
+pg_volume_capacity=5
+pg_persistence_storageClass=dbstorageclass
+pg_persistence_existingclaim=postgrespvc
+pg_cpu_limit=1000
+pg_mem_limit=2
+
+postgres_data_dir="~/.awx/pgdocker"
+
+pg_username=awx
+pg_password=awxpass
+pg_database=awx
+pg_port=5432
+
+admin_user=admin
+admin_password=password
+
+create_preload_data=True
+secret_key=awxsecret
+  
+
+Edit the role yaml to add/remove parameters.
+ $ vim installer/roles/kubernetes/defaults/main.yml
+  AWX is resource hungry and they are with the below default value.
+
+web_mem_request: 1
+web_cpu_request: 500
+task_mem_request: 2
+task_cpu_request: 1500
+redis_mem_request: 2
+redis_cpu_request: 500
+
+Change them to 0 for all the containers or assign with less value than the default.
+
+web_mem_request: 0
+web_cpu_request: 0
+task_mem_request: 0
+task_cpu_request: 0
+redis_mem_request: 0
+redis_cpu_request: 0
+
+  
+Change from 60 seconds to 90 seconds.
+
+postgress_activate_wait: 90
+We have additionally added this parameter.
+
+postgress_migrate_wait: 90
+  
+
+Added an additional task to wait for 90 seconds before starting with migrating the database:
+
+$ vim installer/roles/kubernetes/tasks/main.yml
+- name: Wait for management pod to start
+  shell: |
+  
+  
+$ ansible-playbook -i installer/inventory installer/install.yml
+    {{ kubectl_or_oc }} -n {{ kubernetes_namespace }} \
+      get pod ansible-tower-management -o jsonpath="{.status.phase}"
+  register: result
+  until: result.stdout == "Running"
+  retries: 60
+  delay: 10
+
+  - name: Wait for two minutes before starting with migrate database
+  pause:
+    seconds: "{{ postgress_migrate_wait }}"
+  when: openshift_pg_activate.changed or kubernetes_pg_activate.changed
+  
+  
+  ansible-playbook -i installer/inventory installer/install.yml
