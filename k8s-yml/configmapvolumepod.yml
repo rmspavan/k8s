@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-configmap-pod
+spec:
+  containers:
+  - name: myapp-containers
+    image: busybox
+    command: ['sh', '-c' , "echo $(MY_VAR) && sleep 3600"]
+    env:
+    - name: MY_VAR
+      valueFrom:
+        configMapkeyRef:
+          name: my-config-map
+          key: myKey
+      
+       
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-configmap-volume-pod
+spec:
+  containers:
+  - name: myapp-containers
+    image: busybox
+    command: ['sh', '-c' , "echo $(cat /etc/config/mykey) && sleep 3600"]
+    volumeMounts:
+      - name: config-volume
+        mountPath: /etc/config
+  volumes:
+    - name: config-volume
+      configMap:
+        name: my-config-map
+      

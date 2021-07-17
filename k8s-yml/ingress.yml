@@ -1,0 +1,36 @@
+vi service-ingress.yml
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: service-ingress
+spec:
+  rules:
+  - host: kubeserv.example.com
+    http:
+	  paths:
+	  - backend:
+	      serviceName: kubeserve2
+		  servicePort: 80
+  - host: kubeserv.example.com
+    http:
+	  paths:
+	  - backend:
+	      serviceName: nginx
+		  servicePort: 80
+  - http:
+	  paths:
+	  - backend:
+	      serviceName: httpd
+		  servicePort: 80		  
+          
+...
+
+$ kubectl create -f service-ingress.yml
+
+$ kubectl get ingress
+
+$ kubectl describe ingress service-ingress
+
+$ curl http://kubeserve2.example.com

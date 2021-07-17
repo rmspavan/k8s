@@ -1,0 +1,40 @@
+
+role.yml
+
+apiVersion: rabc.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: web
+  name: service-reader
+rules:
+- apiGroups: [""]
+  verbs: ["get", "list"]
+  resources: ["services"]
+  
+...
+
+$ kubectl create -f role.yml
+
+$ kubectl create rolebinding test --role=service-reader --serviceeaccount=web:default -n web
+
+$ kubectl get clusterrole
+$ kubectl create clusterrole pv-reader --verb=get,list --resource=persistentvolumes
+$ kubectl create clusterrolebinding pv-test --clusterrole=pv-reader --serviceaccount=web:default
+
+
+vi curl-pod.yml
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curlpod
+  namespace: web
+spec:
+  containers:
+  - image: tutum/curl
+    command: ["sleep", "99999999"]
+    name: main
+  - image: chadmcrowell/kubectl-proxy
+    name: proxy
+  restartPolicy: Always 

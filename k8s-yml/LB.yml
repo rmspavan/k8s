@@ -1,0 +1,26 @@
+
+nginx-loadbalancer.yml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-loadbalancer
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: nginx
+	
+...
+
+$ kubectl run kubeserve2(deplyname) --image=chadmcrowell/kubeserve2
+
+$ kubectl scale deployments/kubeserver2 --replicas=2
+
+$ kubectl expose deployments kubeserve2 --port 80 --target-port 8080 --type LoadBalancer
+
+
+

@@ -1,0 +1,61 @@
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-nodeport
+spec:
+  type: NodePort
+  ports:
+  - protocal: TCP
+    port: 80
+    targetPort: 80
+    nodePort: 31000
+  selector:
+    app: nginx
+    
+...
+
+
+vi nginx-np.yml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service-nodeport
+  labels:
+    app: nginx-app
+spec:
+  type: NodePort
+  ports:
+  - protocal: TCP
+    port: 80
+    targetPort: 80
+    nodePort: 31000
+  selector:
+    app: nginx-app   # node port range b/w 30000 to 32767
+    
+...
+
+nginx-np-deploy.yml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+	  app: nginx-app
+  template:
+    metadata:
+	  labels:
+	    app: nginx-app
+	spec:
+	  containers:
+	  - name: nginx-np-containerPort
+	    image: nginx:1.7.9
+		ports:
+		- containerPort: 80
