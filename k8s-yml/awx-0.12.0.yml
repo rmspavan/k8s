@@ -1,0 +1,126 @@
+kubectl label node <node name> node-role.kubernetes.io/<role name>=<key name>
+
+kubectl label node k8s-node1 node-role.kubernetes.io/node1=node1
+
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+vi mv.yml
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: my-pv
+spec:
+  storageClassName: local-storage
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+
+kubectl create -f pv.yml
+
+vi pvc.yml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-pvc
+spec:
+  storageClassName: local-storage
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 512Mi
+
+kubectl create -f pvc.yml
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.34.1/deploy/static/provider/baremetal/deploy.yaml
+
+kubectl apply -f https://raw.githubusercontent.com/ansible/awx-operator/0.12.0/deploy/awx-operator.yaml
+
+vi awx-demo.yml
+
+---
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx-demo (ansible-awx)
+spec:
+  service_type: nodeport
+  ingress_type: none
+  hostname: awx-demo.example.com  (ansible-awx.example.com)
+
+$ kubectl apply -f awx-demo.yml
+
+
+kubectl logs -f deployments/awx-operator
+
+kubectl get pods -l "app.kubernetes.io/managed-by=awx-operator"
+
+kubectl get svc -l "app.kubernetes.io/managed-by=awx-operator"
+
+
+kubectl get secret awx-admin-password -o jsonpath='{.data.password}' | base64 --decode
+
+
+kubectl port-forward svc/ansible-awx-service --address 0.0.0.0 32710:80 &> /dev/null & [4] 46686
+
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  creationTimestamp: "2021-07-18T09:59:53Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  labels:
+    app.kubernetes.io/component: database
+    app.kubernetes.io/instance: postgres-awx-demo
+    app.kubernetes.io/managed-by: awx-operator
+    app.kubernetes.io/name: postgres
+  name: postgres-awx-demo-postgres-0
+  namespace: default
+  resourceVersion: "97310"
+  uid: 7f18a9ff-a741-4fc8-a49d-e6421830faf2
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+  volumeMode: Filesystem
+status:
+  phase: Pending
+~
+
+
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: awx-demo-postgres-0-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  hostPath:
+    path: "/pgawx"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
