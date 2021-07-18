@@ -113,7 +113,44 @@ spec:
 
 
 
+kubectl scale deployment <deployment-name> --replicas=3 -n <namespace>
 
+vi awx-ingress.yml
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: service-ingress
+spec:
+  rules:
+  - host: awx.example.com
+    http:
+	  paths:
+	  - backend:
+	      serviceName: awx-service
+		  servicePort: 80
+  - host: awx.example.com
+    http:
+	  paths:
+	  - backend:
+	      serviceName: nginx
+		  servicePort: 80
+  - http:
+	  paths:
+	  - backend:
+	      serviceName: httpd
+		  servicePort: 80		  
+          
+...
+
+$ kubectl create -f awx-ingress.yml
+
+$ kubectl get ingress
+
+$ kubectl describe ingress awx-ingress
+
+$ curl http://awx.example.com
 
 
 
