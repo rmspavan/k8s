@@ -77,10 +77,14 @@ hostnamectl set-hostname kube-master
 vi /etc/fstab
 swapoff -a
 firewall-cmd --permanent --add-port=6443/tcp
+firewall-cmd --permanent --add-port=2379-2380/tcp
 firewall-cmd --permanent --add-port=10250/tcp
-systemctl status firewalld
-sudo firewall-cmd --reload
-
+firewall-cmd --permanent --add-port=10251/tcp
+firewall-cmd --permanent --add-port=10252/tcp
+firewall-cmd --permanent --add-port=10255/tcp
+firewall-cmd --reload
+modprobe br_netfilter
+echo '1' > /proc/sys/net/bridge/bridge-nf-call-iptables
 
 cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf 
 net.bridge.bridge-nf-call-ip6tables = 1 
