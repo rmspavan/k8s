@@ -1,0 +1,38 @@
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-provisioner: k8s.io/minikube-hostpath
+  creationTimestamp: "2021-07-20T02:50:39Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  labels:
+    app.kubernetes.io/component: database
+    app.kubernetes.io/instance: postgres-ansible-awx
+    app.kubernetes.io/managed-by: awx-operator
+    app.kubernetes.io/name: postgres
+  name: postgres-ansible-awx-postgres-0
+  namespace: default
+  resourceVersion: "2572"
+  uid: 8beb4970-ffc4-4eff-b774-72c34438e3b0
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+  storageClassName: standard
+  volumeMode: Filesystem
+  volumeName: pvc-8beb4970-ffc4-4eff-b774-72c34438e3b0
+status:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 8Gi
+  phase: Bound

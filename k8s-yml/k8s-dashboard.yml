@@ -1,0 +1,63 @@
+
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.2.0/aio/deploy/recommended.yaml
+
+
+kubectl get po -n kubernetes-dashboard
+
+kubectl get svc -A
+
+kubectl edit service/kubernetes-dashboard
+
+spec:
+  clusterIP: 192.168.0.120
+  - nodePort: 32321
+    port: 443
+	protocal: TCP
+	targetPort: 8443
+  selector:
+    k8s-app
+  sessionAffinity: None
+  type: NodePort
+status:
+
+kubectl get svc
+
+
+
+kubectl get sa (service account)
+
+
+vi k8s-serviceaccount.yaml
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dashboard-admin
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-admin-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: dashboard-admin
+  namespace: kubernetes-dashboard
+
+kubectl create -f k8s-serviceaccount.yaml
+
+kubectl describe sa dashboard-admin -n kubernetes-dashboard
+
+kubectl describe secrets dashboard-admin-token-****
+
+kubectl describe secrets dashboard-admin-token-bsnlz -n kubernetes-dashboard
+
+copy the token 
+
+eyJhbGciOiJSUzI1NiIsImtpZCI6InFfUW4xSVFVNVB3VlJvM0NQekVLVHc3WkVqTzhMRkI1X3lwWUR5LVQzT1kifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlcm5ldGVzLWRhc2hib2FyZCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJkYXNoYm9hcmQtYWRtaW4tdG9rZW4tYnNubHoiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGFzaGJvYXJkLWFkbWluIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiNGYyOTY1YzgtYTk5MC00YjliLTk0ZDktMTY0ODhmZTIxYzI0Iiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50Omt1YmVybmV0ZXMtZGFzaGJvYXJkOmRhc2hib2FyZC1hZG1pbiJ9.FRodUu9F7aSjokIpOGYgiqpGTDaaeX0zbSVhvHxNv01Ws2q2pl4qwCO0DjdoA9Fz1R13gt9yhWE_UduNUE5NyEKU6XCckAmWJyXxcwI8WkZc1ppktKU3Pnf1N3Wk7OIm0yHApkwiXkxK6qaiScm1lckjWSRk1iifT2CgwRGMVtBeGaGxblrxHpu5A1l4CWt2g1gKuzNruaiEgxx1wzxpm_APtrczM55RVrnWuBSDHm2dikVCK0Gr7dSWKwTQLntk3VKknUe85b6rPUwHgjbW9J-cVN_Nozzx1aiRjGCdEZqI1WoIuDVmN4qVWxSx0ryi98yuxJrj3W7qgfvkWl547Q
+

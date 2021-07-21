@@ -1,0 +1,39 @@
+FROM tomcat:8
+# Take the war and copy to webapps of tomcat
+COPY target/*.war /usr/local/tomcat/webapps/dockeransible.war (change)
+
+
+kubectl port-forward svc/ansible-awx-service --address 0.0.0.0 32083:80 &> /dev/null & [4] 46686
+
+
+minikube start --addons=ingress --cni=flannel --install-addons=true \
+    --kubernetes-version=stable \
+    --vm-driver=none --wait=false \
+    --cpus=4 --memory=6g
+	
+kubectl apply -f https://raw.githubusercontent.com/ansible/awx-operator/0.12.0/deploy/awx-operator.yaml
+
+
+---
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx-demo
+spec:
+  service_type: nodeport
+  ingress_type: none
+  hostname: awx-demo.example.com
+  
+  
+kubectl apply -f awx-demo.yml
+
+
+kubectl get secret awx-demo-admin-password -o jsonpath="{.data.password}" | base64 --decode
+
+kubectl port-forward service/awx-demo-service 7080:80
+
+kubectl port-forward svc/ansible-awx-service --address 0.0.0.0 31620:80
+
+
+kubectl get secret ansible-awx-admin-password -o jsonpath="{.data.password}" | base64 --decode
+  

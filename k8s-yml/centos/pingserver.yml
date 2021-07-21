@@ -1,0 +1,9 @@
+---
+- hosts: all
+  gather_facts: yes
+  remote_user: root
+  tasks:
+    - name: Test connection
+      ping:
+      remote_user: root
+...

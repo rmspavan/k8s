@@ -1,0 +1,222 @@
+
+
+
+kubeadm join 192.168.0.120:6443 --token odqmvy.e3vc5dyiwsssfni8 \
+        --discovery-token-ca-cert-hash sha256:d2ab5cdab2cd059ba7bdbba49743521d0a3742c218a328c277a92ee109e67953
+		
+		
+		
+kubectl label node k8s-node1 node-role.kubernetes.io/node1=node1
+
+kubectl describe nodes
+
+kubectl taint nodes --all node-role.kubernetes.io/master-
+
+## if cni not installed use below cmds
+wget https://github.com/vmware-tanzu/antrea/releases/download/v1.0.0/antrea.yml -O /root/antrea.yml
+
+kubectl apply -f /root/antrea.yml
+
+######
+
+Storage: for pv and pvc
+
+wget https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.19/deploy/local-path-storage.yaml -O /root/local-path-storage.yaml
+
+sed -i "s#/opt/local-path-provisioner#/mnt/local-storage#g" /root/local-path-storage.yaml
+
+kubectl apply -f /root/local-path-storage.yaml
+
+Setting the Default Storage Class:
+
+kubectl patch sc local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+kubectl get sc
+
+
+AWX operator:
+
+kubectl apply -f https://raw.githubusercontent.com/ansible/awx-operator/0.12.0/deploy/awx-operator.yaml
+
+
+vi awx.yml
+
+---
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+  
+kubectl apply -f awx.yml
+
+####Optional#####
+
+kubectl get pvc postgres-awx-postgres-0 -o=yaml > awx-pvc.yml
+kubectl delete pvc postgres-awx-postgres-0
+kubectl apply -f awx-pvc.yml
+
+kubectl get pvc   kubectl get pv
+
+#####################################################################
+
+Resource Management:
+
+kubectl describe node
+
+kubectl describe po awx-b5f6cf4d4-**** | grep cpu
+
+edit the awx.yml file and add web resources
+
+awx.yml
+---
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+spec:
+  tower_web_resource_requirements:
+    requests:
+      cpu: 400m
+      memory: 2Gi
+    limits:
+      cpu: 1000m
+      memory: 4Gi
+  tower_task_resource_requirements:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: 500m
+      memory: 2Gi
+	  
+kubectl apply -f awx.yml 
+
+kubectl get po
+
+
+Ingress:
+
+kubectl get services
+
+If we look at the awx-service line, it tells us that the service is of type ClusterIP, that the internal IP for the service is 10.11.71.177, 
+that it’s available on port 80 internally. For our single node cluster perhaps the easiest way to get access externally is to change
+the service to a NodePort type. The AWX Operator gives us a way to do this, so change your awx.yml file to match the below and reapply it:
+
+Edit the awx.tml file add the ingress type
+
+awx.yml
+---
+ apiVersion: awx.ansible.com/v1beta1
+ kind: AWX
+ metadata:
+   name: awx
+ spec:
+   tower_ingress_type: NodePort
+   tower_web_resource_requirements:
+     requests:
+       cpu: 400m
+       memory: 2Gi
+     limits:
+       cpu: 1000m
+       memory: 4Gi
+   tower_task_resource_requirements:
+     requests:
+       cpu: 250m
+       memory: 1Gi
+     limits:
+       cpu: 500m
+       memory: 2Gi
+
+kubectl apply -f awx.yml && watch kubectl get svc
+
+kubectl get svc
+
+It now says that the service is available on port 80 internally, and port 32441 externally. If we navigate to http://<vm ip>:32442 you should get the AWX login screen:
+
+
+Hurrah! But, it’d be nicer if it was on port 80 wouldn’t it? We can do this a number of ways too, but for our single node cluster I found the simplest
+to make work was to use an Ingress Controller, and specifically I had the most success with the Contour Ingress Controller. More YAML, and kubectl:
+
+wget https://projectcontour.io/quickstart/contour.yaml -O /root/contour.yaml
+kubectl apply -f contour.yaml
+
+
+kubectl get pods -n projectcontour
+
+
+Now let’s tweak our awx.yml to use an Ingress Controller and reapply it again.
+
+awx.yml
+---
+ apiVersion: awx.ansible.com/v1beta1
+ kind: AWX
+ metadata:
+   name: awx
+ spec:
+   tower_ingress_type: Ingress
+   tower_hostname: awx.lab.core.pilue.co.uk (awx.ansible.st.com)
+   tower_web_resource_requirements:
+     requests:
+       cpu: 400m
+       memory: 2Gi
+     limits:
+       cpu: 1000m
+       memory: 4Gi
+   tower_task_resource_requirements:
+     requests:
+       cpu: 250m
+       memory: 1Gi
+     limits:
+       cpu: 500m
+       memory: 2Gi
+	   
+kubectl apply -f awx.yml && watch kubectl get po,svc,ing
+
+
+HTTPS and Secrets:
+
+So first we need to make a certificate. Here I generate a self signed certificate for simplicity, but this will work just as well with a CA signed certificate.
+
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -out ingress-tls.crt -keyout ingress-tls.key -subj "/CN=awx.lab.core.pilue.co.uk/O=awx-ingress-tls"
+
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -out ingress-tls.crt -keyout ingress-tls.key -subj "/CN=awx.ansible.st.com/O=awx-ingress-tls"
+
+
+Now we need to store the certificate and private key in a Kubernetes secret:
+
+kubectl create secret tls awx-ingress-tls --key ingress-tls.key --cert ingress-tls.crt
+
+Now we can modify our awx.yml to include the above variable and secret name, then apply it:
+
+awx.yml
+---
+ apiVersion: awx.ansible.com/v1beta1
+ kind: AWX
+ metadata:
+   name: awx
+ spec:
+   tower_ingress_type: Ingress
+   tower_hostname: awx.lab.core.pilue.co.uk
+   tower_ingress_tls_secret: awx-ingress-tls
+   tower_web_resource_requirements:
+     requests:
+       cpu: 400m
+       memory: 2Gi
+     limits:
+       cpu: 1000m
+       memory: 4Gi
+   tower_task_resource_requirements:
+     requests:
+       cpu: 250m
+       memory: 1Gi
+     limits:
+       cpu: 500m
+       memory: 2Gi
+	   
+kubectl apply -f awx.yml
+
+kubectl get ing,po,svc
+
+
+To get AWX admin password:
+
+kubectl get secret awx-admin-password -o jsonpath='{.data.password}' | base64 --decode

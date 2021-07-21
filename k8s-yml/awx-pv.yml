@@ -1,0 +1,45 @@
+
+
+kubectl apply -f https://raw.githubusercontent.com/ansible/awx-operator/0.12.0/deploy/awx-operator.yaml
+
+
+pv.yml
+
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    hostPathProvisionerIdentity: 281a9008-44c8-490e-ad72-03e29eb6094a
+    pv.kubernetes.io/provisioned-by: k8s.io/minikube-hostpath
+  creationTimestamp: "2021-07-20T02:50:39Z"
+  finalizers:
+  - kubernetes.io/pv-protection
+  name: pvc-8beb4970-ffc4-4eff-b774-72c34438e3b0
+  resourceVersion: "2568"
+  uid: c70442dd-2e8b-4358-a313-66b49417044f
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 8Gi
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: postgres-ansible-awx-postgres-0
+    namespace: default
+    resourceVersion: "2563"
+    uid: 8beb4970-ffc4-4eff-b774-72c34438e3b0
+  hostPath:
+    path: /tmp/hostpath-provisioner/default/postgres-ansible-awx-postgres-0
+    type: ""
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: standard
+  volumeMode: Filesystem
+status:
+  phase: Bound
+~
+:q

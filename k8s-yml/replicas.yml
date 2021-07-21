@@ -1,0 +1,32 @@
+--- 
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata: 
+  name: debdeploy-webserver
+spec: 
+  replicas: 1
+  selector: 
+    matchLabels: 
+      app: debdeploy1webserver
+  template: 
+    metadata: 
+      labels: 
+        app: debdeploy1webserver
+    spec: 
+      containers: 
+        - 
+          image: "docker.io/debu3645/debapachewebserver:v1"
+          name: deb-deploy1-container 
+          ports: 
+            - 
+              containerPort: 6060
+              
+...
+
+kubectl -n debns1 create -f createdeb_deployment1.yaml**
+
+kubectl scale deployment <deployment-name> --replicas=0 -n <namespace>
+kubectl scale deployment <deployment-name> --replicas=3 -n <namespace>
+
+              
+              

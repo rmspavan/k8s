@@ -113,7 +113,9 @@ spec:
 
 
 
-kubectl scale deployment <deployment-name> --replicas=3 -n <namespace>
+kubectl scale deployment awx-operator --replicas=3 -n default
+
+kubectl scale deployment jenkins --replicas=1 -n jenkins
 
 vi awx-ingress.yml
 

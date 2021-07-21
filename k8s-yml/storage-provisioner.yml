@@ -1,0 +1,122 @@
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Pod","metadata":{"annotations":{},"labels":{"addonmanager.kubernetes.io/mode":"Reconcile","integration-test":"storage-provisioner"},"name":"storage-provisioner","namespace":"kube-system"},"spec":{"containers":[{"command":["/storage-provisioner"],"image":"gcr.io/k8s-minikube/storage-provisioner:v5","imagePullPolicy":"IfNotPresent","name":"storage-provisioner","volumeMounts":[{"mountPath":"/tmp","name":"tmp"}]}],"hostNetwork":true,"serviceAccountName":"storage-provisioner","volumes":[{"hostPath":{"path":"/tmp","type":"Directory"},"name":"tmp"}]}}
+  creationTimestamp: "2021-07-19T10:00:03Z"
+  labels:
+    addonmanager.kubernetes.io/mode: Reconcile
+    integration-test: storage-provisioner
+  name: storage-provisioner
+  namespace: kube-system
+  resourceVersion: "1640"
+  uid: 2969fdc0-0a6b-41a1-a10d-c0f232eed316
+spec:
+  containers:
+  - command:
+    - /storage-provisioner
+    image: gcr.io/k8s-minikube/storage-provisioner:v5
+    imagePullPolicy: IfNotPresent
+    name: storage-provisioner
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /tmp
+      name: tmp
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-mgf6f
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  hostNetwork: true
+  nodeName: localhost.localdomain
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: storage-provisioner
+  serviceAccountName: storage-provisioner
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - hostPath:
+      path: /tmp
+      type: Directory
+    name: tmp
+  - name: kube-api-access-mgf6f
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2021-07-19T10:01:31Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2021-07-20T02:33:14Z"
+    status: "True"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2021-07-20T02:33:14Z"
+    status: "True"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2021-07-19T10:01:31Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: docker://509f478751caec957aa8dae0ae1772b085410538e727d69775205c4d6efe9d0b
+    image: gcr.io/k8s-minikube/storage-provisioner:v5
+    imageID: docker-pullable://gcr.io/k8s-minikube/storage-provisioner@sha256:18eb69d1418e854ad5a19e399310e52808a8321e4c441c1dddad8977a0d7a944
+    lastState:
+      terminated:
+        containerID: docker://7dc8796a83a15df0d1227d5ff86d8fc0b4f33e0a20531e68badd0f554c55a92c
+        exitCode: 1
+        finishedAt: "2021-07-20T02:32:58Z"
+        reason: Error
+        startedAt: "2021-07-20T02:32:27Z"
+    name: storage-provisioner
+    ready: true
+    restartCount: 2
+    started: true
+    state:
+      running:
+        startedAt: "2021-07-20T02:33:14Z"
+  hostIP: 192.168.0.113
+  phase: Running
+  podIP: 192.168.0.113
+  podIPs:
+  - ip: 192.168.0.113
+  qosClass: BestEffort
+  startTime: "2021-07-19T10:01:31Z"
+
