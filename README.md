@@ -187,6 +187,16 @@ kubectl get node -owide
   Kubectl token create --print-join-command
 
   
+To delete nodes:
+  
+  kubectl drain <node-name> --delete-local-data --force --ignore-daemonsets
+  kubeadm get no
+  kubeadm reset (worker node)
+  kubectl delete node <nodename>
+  sudo yum remove kubeadm kubectl kubelet kubernetes-cni kube* (worker node)
+  sudo yum autoremove
+  
+  
 AWX Install on K8S:
   
 install the helm to manage to create the database pod:
