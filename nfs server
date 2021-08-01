@@ -1,0 +1,36 @@
+
+Setting Up NFS Server On RHEL 8 / CentOS 8 
+Nfs Server: Hostname: Server1.Example.com Ip Address: 10.10.10.1
+Nfs Client: Hostname: Server2.Example.com Ip Address: 10.10.10.2
+
+# dnf install nfs-utils or yum install nfs-utils 
+# systemctl enable --now nfs-server.service OR
+# systemctl start nfs-server.service
+# systemctl enable nfs-server.service 
+# systemctl status nfs-server.service
+# mkdir -p /mnt/nfs_shares
+# chown -R nobody: /mnt/nfs_shares/
+# chmod -R 777 /mnt/shares
+# vim /etc/exports
+ /mnt/nfs_shares 10.10.10.2(rw,sync,no_all_squash,root_squash)
+# exportfs -arv
+# exportfs  -s
+
+Firewall Configurations
+# firewall-cmd --permanent --add-service=nfs
+# firewall-cmd --permanent --add-service=rpc-bind
+# firewall-cmd --permanent --add-service=mountd
+# firewall-cmd --reload
+
+Setting Up NFS Client on Client Systems
+# dnf install nfs-utils nfs4-acl-tools 
+# showmount -e 10.10.10.1
+# mkdir -p /nfs_client
+# mount -t nfs  10.10.10.1:/mnt/nfs_shares   /nfs_client
+# mount | grep nfs
+
+Final TEST
+# touch /mnt/nfs_shares/nfsserver.txt     [On NFS Server]
+# ls -l /nfs_client/     [On NFS Client]
+# umount /mnt/nfs_shares 
+# exit
