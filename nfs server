@@ -8,13 +8,53 @@ Nfs Client: Hostname: Server2.Example.com Ip Address: 10.10.10.2
 # systemctl start nfs-server.service
 # systemctl enable nfs-server.service 
 # systemctl status nfs-server.service
+
+You can verify the version of nfs protocol that you are running by executing the command:
+$ rpcinfo -p | grep nfs
+
+The configuration files for the NFS server are:
+/etc/nfs.conf – main configuration file for the NFS daemons and tools.
+/etc/nfsmount.conf – an NFS mount configuration file.
+
+sudo mkdir -p /mnt/nfs_shares/docs
+sudo chown -R nobody: /mnt/nfs_shares/docs
+sudo chmod -R 777 /mnt/nfs_shares/docs
+
+sudo systemctl restart nfs-utils.service
+
+sudo vi /etc/exports
+/mnt/nfs_shares/docs    192.168.2.103(rw,sync,no_all_squash,root_squash)
+/mnt/nfs_shares/docs    <nfs-clientIP>(rw,sync,no_all_squash,root_squash)
+
+rw  – This stands for read/write. It grants read and write permissions to the NFS share.
+sync – The parameter requires the writing of the changes on the disk first before any other operation can be carried out.
+no_all_squash – This will map all the UIDs & GIDs from the client requests to identical UIDS and GIDs residing on the NFS server.
+root_squash – The attribute maps requests from the root user on the client-side to an anonymous UID / GID.
+
+cat /etc/exports
+
+sudo exportfs -arv
+# exportfs  -s
+
+
+$ sudo firewall-cmd --permanent --add-service=nfs
+$ sudo firewall-cmd --permanent --add-service=rpc-bind
+$ sudo firewall-cmd --permanent --add-service=mountd
+
+
+sudo firewall-cmd --reload
+
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&***************************************************************
+
+
 # mkdir -p /mnt/nfs_shares
 # chown -R nobody: /mnt/nfs_shares/
 # chmod -R 777 /mnt/shares
 # vim /etc/exports
  /mnt/nfs_shares 10.10.10.2(rw,sync,no_all_squash,root_squash)
 # exportfs -arv
-# exportfs  -s
+
+
 
 Firewall Configurations
 # firewall-cmd --permanent --add-service=nfs
@@ -34,3 +74,38 @@ Final TEST
 # ls -l /nfs_client/     [On NFS Client]
 # umount /mnt/nfs_shares 
 # exit
+**************************************************************************************************************
+
+Setting up the NFS Client system:
+$vsudo dnf install nfs-utils nfs4-acl-tools -y
+$ sudo apt install nfs-common nfs4-acl-tools -y
+
+showmount -e 192.168.2.102 <nfs server IP>
+
+sudo mkdir p /mnt/client_share
+$ sudo mount -t nfs 192.168.2.102:/mnt/nfs_shares/docs /mnt/client_share
+
+sudo mount | grep -i nfs
+
+To make the mount share persistent upon a reboot, you need to edit the /etc/fstab file and append the entry below.
+
+192.168.2.102:/mnt/nfs_shares/docs  /mnt/client_share  nfs  defaults  0  0
+
+
+Testing NFS Server & Client Setup
+
+$ sudo touch /mnt/nfs_shares/docs/server_nfs_file.txt
+
+Now, head out to the client system and check whether the file exists on the client side.
+
+$ ls -l /mnt/client_share/
+
+
+On the client create the file as shown:
+
+$ sudo touch /mnt/client_share/client_nfs_file.txt
+
+
+Now, head back to the server and check whether the file is present at the NFS share directory
+
+$ ls -l /mnt/nfs_shares/docs
