@@ -1,0 +1,57 @@
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.2.0/aio/deploy/recommended.yaml
+
+
+kubectl get po -n kubernetes-dashboard
+
+kubectl get svc -A
+
+kubectl edit service/kubernetes-dashboard
+
+spec:
+  clusterIP: 192.168.1.222
+  - nodePort: 32321
+    port: 443
+	protocal: TCP
+	targetPort: 8443
+  selector:
+    k8s-app
+  sessionAffinity: None
+  type: NodePort
+status:
+
+kubectl get svc
+
+
+
+kubectl get sa (service account)
+
+
+vi k8s-serviceaccount.yaml
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dashboard-admin
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-admin-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: dashboard-admin
+  namespace: kubernetes-dashboard
+
+kubectl create -f k8s-serviceaccount.yaml
+
+kubectl describe sa dashboard-admin -n kubernetes-dashboard
+
+kubectl describe secrets dashboard-admin-token-dz8xj -n kubernetes-dashboard
+
+copy the token

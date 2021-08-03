@@ -1,0 +1,85 @@
+
+1. Create Jenkins namespace
+  
+kubectl get namespaces
+
+
+kubectl create namespace jenkins
+kubectl get namespaces
+ 
+ 
+ 
+ 
+2. Create Jenkins deployment yaml file
+ 
+vi jenkinsdeployment.yaml
+ 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: jenkins
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      containers:
+      - name: jenkins
+        image: jenkins/jenkins:lts-jdk11
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: jenkins-home
+          mountPath: /var/jenkins_home
+      volumes:
+      - name: jenkins-home
+        emptyDir: { }
+		
+kubectl create -f jenkinsdeployment.yaml -n jenkins
+ 
+ 
+ 
+ 3. Deploy Jenkins
+ 
+kubectl get deploy -n jenkins
+kubectl get po -n jenkins
+ 
+kubectl logs pod_name -n jenkins
+ 
+ 
+ 
+ 4. Create Jenkins Service yaml file
+ 
+vi jenkinsservice.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: jenkins
+ 
+kubectl create -f jenkinsservice.yml -n jenkins
+
+kubectl get svc -n jenkins
+
+
+ 
+ 5. Make Jenkins accessible outside by exposing as a Service
+
+kubectl logs pod_name -n jenkins to get the password
+
+227e3b53353f4a97bc4a3c695faba56b
+86541941e97b49efbbbbd2fcfaf05ffc
+
+ 6. Access Jenkins dashboard

@@ -1,0 +1,234 @@
+Storage: for pv and pvc
+
+wget https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.19/deploy/local-path-storage.yaml -O /root/local-path-storage.yaml
+
+sed -i "s#/opt/local-path-provisioner#/mnt/local-storage#g" /root/local-path-storage.yaml
+
+kubectl apply -f /root/local-path-storage.yaml
+
+Setting the Default Storage Class:
+
+kubectl patch sc local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+kubectl get sc
+
+
+AWX operator:
+
+kubectl apply -f https://raw.githubusercontent.com/ansible/awx-operator/0.12.0/deploy/awx-operator.yaml
+
+
+vi awx.yml
+
+---
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+  
+kubectl apply -f awx.yml
+
+####Optional#####
+
+kubectl get pvc postgres-awx-postgres-0 -o=yaml > awx-pvc.yml
+kubectl delete pvc postgres-awx-postgres-0
+kubectl apply -f awx-pvc.yml
+
+kubectl get pvc   
+
+#####################################################################
+
+Resource Management:
+
+kubectl describe node
+
+kubectl describe po awx-b5f6cf4d4-**** | grep cpu
+
+edit the awx.yml file and add web resources
+
+awx.yml
+---
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+
+	  
+kubectl apply -f awx.yml 
+
+kubectl get po
+
+
+Ingress:
+
+kubectl get services
+
+If we look at the awx-service line, it tells us that the service is of type ClusterIP, that the internal IP for the service is 10.11.71.177, 
+that it’s available on port 80 internally. For our single node cluster perhaps the easiest way to get access externally is to change
+the service to a NodePort type. The AWX Operator gives us a way to do this, so change your awx.yml file to match the below and reapply it:
+
+Edit the awx.tml file add the ingress type
+
+awx.yml
+---
+ apiVersion: awx.ansible.com/v1beta1
+ kind: AWX
+ metadata:
+   name: awx
+ spec:
+   service_type: NodePort
+   
+
+kubectl apply -f awx.yml && watch kubectl get svc
+
+kubectl get svc
+
+It now says that the service is available on port 80 internally, and port 32441 externally. If we navigate to http://<vm ip>:32442 you should get the AWX login screen:
+
+
+Hurrah! But, it’d be nicer if it was on port 80 wouldn’t it? We can do this a number of ways too, but for our single node cluster I found the simplest
+to make work was to use an Ingress Controller, and specifically I had the most success with the Contour Ingress Controller. More YAML, and kubectl:
+
+wget https://projectcontour.io/quickstart/contour.yaml -O /root/contour.yaml
+kubectl apply -f contour.yaml
+
+
+kubectl get pods -n projectcontour
+
+
+Now let’s tweak our awx.yml to use an Ingress Controller and reapply it again.
+
+awx.yml
+---
+ apiVersion: awx.ansible.com/v1beta1
+ kind: AWX
+ metadata:
+   name: awx
+ spec:
+   ingress_type: Ingress
+   hostname: awx.st.com
+   
+	   
+kubectl apply -f awx.yml && watch kubectl get po,svc,ing
+
+
+HTTPS and Secrets:
+
+So first we need to make a certificate. Here I generate a self signed certificate for simplicity, but this will work just as well with a CA signed certificate.
+
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -out ingress-tls.crt -keyout ingress-tls.key -subj "/CN=awx-demo.example.com/O=awx-ingress-tls"
+
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -out ingress-tls.crt -keyout ingress-tls.key -subj "/CN=awx.ansible.st.com/O=awx-ingress-tls"
+
+
+Now we need to store the certificate and private key in a Kubernetes secret:
+
+kubectl create secret tls awx-ingress-tls --key ingress-tls.key --cert ingress-tls.crt
+
+Now we can modify our awx.yml to include the above variable and secret name, then apply it:
+
+awx.yml
+---
+ apiVersion: awx.ansible.com/v1beta1
+ kind: AWX
+ metadata:
+   name: awx
+ spec:
+   ingress_type: Ingress
+   hostname: awx.st.com
+   ingress_tls_secret: awx-ingress-tls
+   
+	   
+kubectl apply -f awx.yml
+
+kubectl get ing,po,svc
+
+
+To get AWX admin password:
+
+kubectl get secret awx-demo-admin-password -o jsonpath='{.data.password}' | base64 --decode
+
+kubectl get secret <resourcename>-admin-password -o jsonpath="{.data.password}" | base64 --decode
+
+
+vi /etc/hosts
+
+ipaddress(shows in ing) awx.st.com
+
+curl -kI awx.st.com
+
+
+
+
+
+
+**************************************Testing***************
+---
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+#  annotations:
+#    kubernetes.io/ingress.class: nginx
+spec:
+#  service_type: nodeport
+  ingress_type: Ingress
+  hostname: awx.st.com
+  ingress_tls_secret: awx-ingress-tls
+#  route_tls_termination_mechanism: Passthrough
+# ingress_tls_secret: awx-tls
+ 
+ 
+ [root@tower1 k8s]# kubectl get ing -A
+NAMESPACE   NAME          CLASS    HOSTS        ADDRESS         PORTS     AGE
+default     awx-ingress   <none>   awx.st.com   192.168.1.238   80, 443   151m
+
+
+[root@tower1 k8s]# kubectl get svc
+NAME                   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)             AGE
+awx-demo-postgres      ClusterIP   None            <none>        5432/TCP            101m
+awx-demo-service       ClusterIP   10.97.51.142    <none>        80/TCP              100m
+awx-operator-metrics   ClusterIP   10.109.91.62    <none>        8383/TCP,8686/TCP   102m
+awx-postgres           ClusterIP   None            <none>        5432/TCP            7d2h
+awx-service            ClusterIP   10.100.149.96   <none>        80/TCP              7d2h
+kubernetes             ClusterIP   10.96.0.1       <none>        443/TCP             9d
+
+
+[root@tower1 k8s]# kubectl describe ing awx-ingress
+Name:             awx-ingress
+Namespace:        default
+Address:          192.168.1.238
+Default backend:  default-http-backend:80 (<error: endpoints "default-http-backend" not found>)
+TLS:
+  awx-ingress-tls terminates awx.st.com
+Rules:
+  Host        Path  Backends
+  ----        ----  --------
+  awx.st.com
+              /   awx-service:80 (10.244.2.28:8052)
+Annotations:  <none>
+Events:       <none>
+
+
+
+[root@tower1 k8s]# kubectl describe svc awx-service
+Name:              awx-service
+Namespace:         default
+Labels:            app.kubernetes.io/component=awx
+                   app.kubernetes.io/managed-by=awx-operator
+                   app.kubernetes.io/name=awx
+                   app.kubernetes.io/operator-version=0.12.0
+                   app.kubernetes.io/part-of=awx
+Annotations:       <none>
+Selector:          app.kubernetes.io/component=awx,app.kubernetes.io/managed-by=awx-operator,app.kubernetes.io/name=awx
+Type:              ClusterIP
+IP Family Policy:  SingleStack
+IP Families:       IPv4
+IP:                10.100.149.96
+IPs:               10.100.149.96
+Port:              http  80/TCP
+TargetPort:        8052/TCP
+Endpoints:         10.244.2.28:8052
+Session Affinity:  None
+Events:            <none>
+
+
