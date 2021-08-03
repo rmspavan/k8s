@@ -1,0 +1,3 @@
+nmcli con show
+nmcli con up ens34
+nmcli dev status
