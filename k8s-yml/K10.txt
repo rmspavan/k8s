@@ -1,0 +1,209 @@
+1. Install Storageclass and make it default
+
+wget https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.19/deploy/local-path-storage.yaml -O /root/local-path-storage.yaml
+sed -i "s#/opt/local-path-provisioner#/mnt/local-storage#g" /root/local-path-storage.yaml
+kubectl apply -f /root/local-path-storage.yaml
+kubectl patch sc local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+kubectl get sc
+
+1.1 VolumeSnapshot CRDs and snapshot controller installation:
+
+
+$ kubectl get pods --all-namespaces -o=jsonpath='{range .items[*]}{"\n"}{range .spec.containers[*]}{.image}{", "}{end}{end}' | grep snapshot-controller quay.io/k8scsi/snapshot-controller:v2.0.1, 
+
+# Change to the latest supported snapshotter version
+$ SNAPSHOTTER_VERSION=v2.0.1
+
+# Apply VolumeSnapshot CRDs
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v2.0.1/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v2.0.1/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v2.0.1/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+
+# Create snapshot controller
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v2.0.1/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v2.0.1/deploy/kubernetes/snapshot-controller/setup-snapshot-controller.yaml
+
+
+git clone https://github.com/kubernetes-csi/csi-driver-host-path.git
+
+1.2 Deployment
+
+# deploy hostpath driver
+$ deploy/kubernetes-latest<1.20>/deploy.sh
+
+Output:
+
+applying RBAC rules
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/v1.5.0/deploy/kubernetes/rbac.yaml
+serviceaccount/csi-provisioner created
+clusterrole.rbac.authorization.k8s.io/external-provisioner-runner created
+clusterrolebinding.rbac.authorization.k8s.io/csi-provisioner-role created
+role.rbac.authorization.k8s.io/external-provisioner-cfg created
+rolebinding.rbac.authorization.k8s.io/csi-provisioner-role-cfg created
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-attacher/v2.1.0/deploy/kubernetes/rbac.yaml
+serviceaccount/csi-attacher created
+clusterrole.rbac.authorization.k8s.io/external-attacher-runner created
+clusterrolebinding.rbac.authorization.k8s.io/csi-attacher-role created
+role.rbac.authorization.k8s.io/external-attacher-cfg created
+rolebinding.rbac.authorization.k8s.io/csi-attacher-role-cfg created
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v2.0.1/deploy/kubernetes/csi-snapshotter/rbac-csi-snapshotter.yaml
+serviceaccount/csi-snapshotter created
+clusterrole.rbac.authorization.k8s.io/external-snapshotter-runner created
+clusterrolebinding.rbac.authorization.k8s.io/csi-snapshotter-role created
+role.rbac.authorization.k8s.io/external-snapshotter-leaderelection created
+rolebinding.rbac.authorization.k8s.io/external-snapshotter-leaderelection created
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-resizer/v0.4.0/deploy/kubernetes/rbac.yaml
+serviceaccount/csi-resizer created
+clusterrole.rbac.authorization.k8s.io/external-resizer-runner created
+clusterrolebinding.rbac.authorization.k8s.io/csi-resizer-role created
+role.rbac.authorization.k8s.io/external-resizer-cfg created
+rolebinding.rbac.authorization.k8s.io/csi-resizer-role-cfg created
+deploying hostpath components
+   deploy/kubernetes-latest/hostpath/csi-hostpath-attacher.yaml
+        using           image: quay.io/k8scsi/csi-attacher:v2.1.0
+service/csi-hostpath-attacher created
+statefulset.apps/csi-hostpath-attacher created
+   deploy/kubernetes-latest/hostpath/csi-hostpath-driverinfo.yaml
+csidriver.storage.k8s.io/hostpath.csi.k8s.io created
+   deploy/kubernetes-latest/hostpath/csi-hostpath-plugin.yaml
+        using           image: quay.io/k8scsi/csi-node-driver-registrar:v1.2.0
+        using           image: quay.io/k8scsi/hostpathplugin:v1.3.0
+        using           image: quay.io/k8scsi/livenessprobe:v1.1.0
+service/csi-hostpathplugin created
+statefulset.apps/csi-hostpathplugin created
+   deploy/kubernetes-latest/hostpath/csi-hostpath-provisioner.yaml
+        using           image: quay.io/k8scsi/csi-provisioner:v1.5.0
+service/csi-hostpath-provisioner created
+statefulset.apps/csi-hostpath-provisioner created
+   deploy/kubernetes-latest/hostpath/csi-hostpath-resizer.yaml
+        using           image: quay.io/k8scsi/csi-resizer:v0.4.0
+service/csi-hostpath-resizer created
+statefulset.apps/csi-hostpath-resizer created
+   deploy/kubernetes-latest/hostpath/csi-hostpath-snapshotter.yaml
+        using           image: quay.io/k8scsi/csi-snapshotter:v2.0.1
+service/csi-hostpath-snapshotter created
+statefulset.apps/csi-hostpath-snapshotter created
+   deploy/kubernetes-latest/hostpath/csi-hostpath-testing.yaml
+        using           image: alpine/socat:1.0.3
+service/hostpath-service created
+statefulset.apps/csi-hostpath-socat created
+11:37:57 waiting for hostpath deployment to complete, attempt #0
+11:38:07 waiting for hostpath deployment to complete, attempt #1
+deploying snapshotclass based on snapshotter version
+volumesnapshotclass.snapshot.storage.k8s.io/csi-hostpath-snapclass created
+
+
+$ kubectl get pods
+NAME                         READY   STATUS    RESTARTS   AGE
+csi-hostpath-attacher-0      1/1     Running   0          4m21s
+csi-hostpath-provisioner-0   1/1     Running   0          4m19s
+csi-hostpath-resizer-0       1/1     Running   0          4m19s
+csi-hostpath-snapshotter-0   1/1     Running   0          4m18s
+csi-hostpath-socat-0         1/1     Running   0          4m18s
+csi-hostpathplugin-0         3/3     Running   0          4m20s
+snapshot-controller-0        1/1     Running   0          4m37s
+
+cd examples
+
+kubectl apply -f csi-storageclass.yaml
+
+cd deploy/kubernetes-latest/hostpath/
+
+ kubectl apply -f .
+
+
+
+2. Install Helm
+
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+
+3. Prerequisites
+3.1 Add the Kasten Helm charts repository
+
+helm repo add kasten https://charts.kasten.io/
+
+3.2 create the namespace where Kasten will be installed
+
+kubectl create namespace kasten-io
+
+3.3 Run the following command to deploy the the pre-check tool:
+
+curl https://docs.kasten.io/tools/k10_primer.sh | bash
+
+4. Install kasten K10
+
+helm install k10 kasten/k10 --namespace=kasten-io 
+ (---or
+helm install k10 kasten/k10 --namespace=kasten-io --set global.persistence.storageClass=<storage-class-name>
+
+or
+helm install k10 kasten/k10 --namespace=kasten-io --set scc.create=true --set route.enabled=true --set route.path="/k10" --set auth.tokenAuth.enabled=true
+--)
+
+kubectl get pods --namespace kasten-io --watch
+
+ kubectl --namespace kasten-io port-forward service/gateway 8080:8000
+ 
+ http://127.0.0.1:8080/k10/#/
+ 
+ 
+ kubectl annotate volumesnapshotclass csi-hostpath-snapclass k10.kasten.io/is-snapshot-class=true
+ 
+5. Create service to access outside
+
+vi k10-svc.yml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-nodeport
+  namespace: kasten-io
+spec:
+  selector:
+    service: gateway
+  ports:
+  - name: http
+    port: 8000
+    nodePort: 32000
+  type: NodePort
+  
+kubectl apply -y k10-svc.yml
+
+
+open brower http://ipaddress:32000/k10/#/
+
+
+
+#############testing:#####################################
+
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+kubectl create namespace mysql
+helm install mysql bitnami/mysql --namespace=mysql
+
+watch -n 2 "kubectl -n mysql get pods"
+
+Once all pods have a Running status, hit CTRL + C to exit watch and then run the following commands to create a local database.
+
+
+MYSQL_ROOT_PASSWORD=$(kubectl get secret --namespace mysql mysql -o jsonpath="{.data.mysql-root-password}" | base64 --decode; echo)
+
+kubectl exec -it --namespace=mysql $(kubectl --namespace=mysql get pods -o jsonpath='{.items[0].metadata.name}') -- mysql -u root --password=$MYSQL_ROOT_PASSWORD -e "CREATE DATABASE k10demo"
+
+
+*******************************************************
+
+Include in deployment
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app
+  labels:
+    app: demo
+annotations:
+  k10.kasten.io/forcegenericbackup: "true"
+  
