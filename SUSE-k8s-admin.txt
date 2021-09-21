@@ -1,0 +1,3741 @@
+Basic K8s cmds:
+----------------
+
+The kubectl cmd:
+
+ * main cmd for interacting with k8s
+ * Default config file: ~/.kube/config
+
+syntax: kubectl VERB RESOURCE [OPTIONS]
+
+Verbs are cmd's that are used on API Resources.
+API Resources are objects that are interacted with in the cluster/
+
+
+kubectl --help
+kubectl api-resources
+kubectl explain RESOURCE
+kubectl cluster-info
+kubectl cluster-info dump
+
+
+1. The get verb is useful for listing resouces and information about them.
+
+Synstax: kubectl get RESOURCE
+
+ex:
+---
+kubectl get nodes
+kubectl get pods
+kubectl get deployments
+
+-n | --namespace
+
+-o wide ---> display extra details
+
+
+2. Tbe verb describe always required both the type of thing that you are describing
+   and the name of the thing that you are describing.
+   
+syntax: kubectl describe RESOURCE
+
+ex:
+---
+kubectl describe nodes
+kubectl describe pods
+kubectl describe deployments
+kubectl describe namesapces default
+
+kubectl describe -n [namespace] pod [podname]
+
+
+3. The create and apply verbs are used to create and update resources in the cluster/
+
+synatax : kubectl create RESOURCE
+          kubectl create -f MANIFEST
+		  kubectl apply -f MANIFEST
+		  
+ex:
+---
+kubectl create namespace
+kubectl create -f pod.yaml
+kubectl apply -f pod.yaml
+
+kubectl create -f simplepod.yml
+
+
+
+4. The delete verb is used to remove resources form the cluster.
+
+synatax: kubectl delete RESOURCE_TYPE RESOURCE
+
+ex:
+---
+kubectl delete namespace
+kubectl delete pod
+kubectl delete deployment
+
+
+kubectl delete -f simplepod.yml
+
+-f ---> specify a yaml file describing objects to delete
+
+
+5. Basic Troubleshooting cmds:
+The following cmds can be used to do some basic troubleshooting of resiurces.
+
+kubectl logs myapp
+kubectl exec -it myapp -- bash
+kubectl cp myapp:/var/log/message /home/tux
+kubectl cp testscript.sh myapp:/usr/local/bin
+kubectl edit service myservice
+
+
+
+kubeadm init --control-plane-endpoint "loadbalancer:6443" --upload-certs --pod-network-cidr=192.168.0.0/16
+
+
+kubectl appy -f hhtps://docs.projectcalico.org/v3.8/manidests/calico.yaml
+ 
+============================================================================================================================================================
+
+
+K8s Manifests:
+----------------
+
+Files that desscribe how k8s should configure objects or even the cluster itself
+
+simpler than providing each instruction manually via the API or kubectl
+
+Created/stored in YAML format
+
+Designed for developers
+
+Easy to integrate into source control
+
+Manifest structure:
+-------------------
+
+apiVersion:
+kind:
+metadata:
+  labels:
+
+spec:
+   selector:
+   
+   
+   template:
+
+ex:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    owner: nginx
+spec:
+  selector:
+    matchlabels:
+      app: nginx
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.7.9
+        ports:
+        - containerPort: 80
+apiVerison: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      nodePort: 3000
+  selector:
+    app: nginx  
+	
+***
+One manifest deploys one component
+use versioned images for pods
+Always use a Deployment (even for 1 pod)
+Define/use environment variables
+
+
+Multi-POD deployment:
+---------------------
+------------------------
+
+1. ReplicaSet:
+
+*A ReplicaSet's purpose is to maintain a stable set of replics pods running at any given time.
+*Often used to guarantee the avalibility of a specified number of identical pods.
+
+ex: need 2 copies of the app. and lated need 5 copies.
+
+*When you need to ensure that a specified number of pod replicas are running ata given time.
+*When you need the ability to scale a certain set of pods.
+
+
+2. StatefulSet:
+
+*Manages Pods that are based on an identical container spec.
+*Miantains a sticky identity for each of their Pods.
+*Pods are created from the same spec, but are not interchangeable( Ecag has a 
+persistent identifier that it maintains across any rescheduling)
+
+ex: I need 4 copies of the blue app. They should be in order with their own storage.
+
+StatefulSets are valuable for applications that require one or more of the following:
+
+* Stable, unique network identifiers
+* Stable, persistent storage
+* Ordered, graceful deployment and scaling
+* Ordered, automated rolling updates.
+
+
+3. DaemonSet:
+
+* Ensures that all (or same) Nodes run a copy of a pod.
+* As nodes are added to the cluster, Pods are addes to them.
+* As nodes are removed form the cluster, those pods are garbage collected.
+* Deleting a Daemonset will clean up the pods it created.
+
+ex: I need to run Cillium on every node.
+
+* DeamonSet are valuable for cluster services that need to be running on every node or a specific subset nodes.
+
+
+4. Deployment:
+
+* A Deployment provides declarative updated for Pods and ReplicaSets.
+* The use of plain ReplicaSets are being phased out in favor of Deployments as they create ReplicaSets automatically.
+* Have the ability to use simple and rolling updates.
+* They can either be Stateful or Stateless
+
+           Stateful                                Stateless
+		   --------								   ---------
+ * A stateful application requires permanenrt  * A stateless application does not need a permanent
+   storage.										 storage solution.
+  
+ * This storage is usually a network-based 
+   solution. 
+   
+Deployment use Cases:
+
+* Create a Deployment to rollout a ReplicaSet
+* Declare the new state of the Pods by updating the PodTemplateSpec of the Deployment.
+* Rollback to an earlier Deployment revision if the current state of the Deployment is not stable
+* Scle up the Deplotment to facilitate more load.
+* Pause the Deployment to apply multiple fixes to its PodTemplateSpec and then resume it to start a new rollout.
+* Use the status of the Deployment as an indecator that a rollout is stuck.
+
+vi nginx-deployment.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    owner: nginx
+spec:
+  selector:
+    matchlabels:
+      app: nginx
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.7.9 
+        ports:
+        - containerPort: 80
+
+kubectl apply -f nginx-deployment.yaml
+keubctl get deployment
+kubectl describe deployment nginx-deployment
+kubectl delete deployment nginx-deployment or kubectl delete -f nginx-deployment.yaml
+ 
+update a deployed App:
+----------------------
+
+image: nginx:1.9.0
+
+kubectl apply -f nginx-deployment.yaml
+
+Rolling Updated a Deployed App:
+----------------------------------
+
+replicas: 2
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 25%
+	maxSurge: 2
+template:
+
+note: Update the image and ensure that there is no chance of disruption:
+      * Only take down 25% of pods at a time for patching
+	  * Have as many as 2 extra pods running temporarily.
+	  
+Adv of Rolling Updates:
+    * Old pods removed and new updated pods created
+	* Updates one pod at a time to ensure the replica set conditions are still met
+	* Ensure a minimum number of pods are always running
+	* Temporarily surge above the desired number of replicas.
+	
+===========================================================================================================================================================
+	
+Configure Networking for Applicaions:
+--------------------------------------
+	
+What are services:
+	
+* Enable apps to be accessed by users, the web, or even from other apps.
+* Provide a stable interface to your apps.
+
+	1. ClusterIP:
+	------------
+	* The clusterIp service type allows traffic inside of k8s to that application.
+	* Enach pod has it's own internal IP
+	* By default, this IP is not avalible form outside of the cluster.
+	* Not every application needs direct traffic from outside of the cluster.
+	
+	2. NodePort:
+	------------
+	* NodePort provides a unique port for an application.
+	* The IP/FQDN of th service would be that of a k8s node in your cluster.
+	* The Port is accessible on every node.
+	
+	ex: http://worker01.example.com:31000
+	
+	3. LoadBalancer:
+	----------------
+	* Public cloud providers have their own LB's that can be used.
+	* Some providers like AWS provide full FQDN instead of IPs for k8s.
+	* The LB service type is not built into the k8s cluster at the current time. This must be 
+	  installed with an application like Metallb.
+ 
+    Example Service Manifests:
+	----------------------------
+	
+   ClusterIP               NodePort                LoadBalancer
+ -------------          ------------------       -----------------   
+apiVerison: v1 	         apiVerison: v1              apiVerison: v1
+kind: Service            kind: Service               kind: Service 
+metadata:				 metadata:					metadata:
+  name: mysql-service      name: nginx-service         name: tomcat-service-service
+spec:					 spec:						spec:
+  type: ClusterIP	       type: NodePort              type: LoadBalancer
+  selector:                ports:                      selector:
+      app: mysql             - port: 80                    app: tomcat
+	                           nodePort: 30000
+						   selector:
+                               app: nginx						  
+
+=====================================================================================================================================================
+
+Use Environment Variables with Application
+-------------------------------------------
+
+* Environment variables can be set in pods when they are deployed
+* Containers commonly use environment variables to configure their application at runtime ( Check the 
+  container imag description in the container image registry to determine which variables a container 
+  can/must use before creating a manifest)
+
+Ex:
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: envar-demo
+  labels:
+    purpose: demonstrate-envars
+spec:
+  containers:
+  - name: envar-demo-container
+    image: gcr.io/google-samples/node-hello:1.0
+    env:
+	- name: DEMO_GREETING
+	  value: "SUSE Rocks!"
+
+Note: In this pod, a new environment variable will be added DEMO_GREETING with the value of "SUSE Rocks!"
+
+kubectl apply -f envar-demo.yaml
+kubectl get pod
+kubectl exec -it envar-demo -- bash
+  printenv
+
+=====================================================================================================================================================
+
+Use Config Maps:
+-------------------
+
+* Environment variables can be set in pods via ConfigMaps when they are deployed
+* Containers commonly use environment variabbles to configure their application at runtime.
+* ConfigMaps allow for environment variables to be set independently from the pod's manifest.
+
+ex:
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: my-configmap
+data:
+    CONFIGMAP_VAR1: configmap_value_1
+	CONFIGMAP_VAR2: configmap_value_2
+
+Note: In this configmap, two new environment variables will be added.
+
+now you can refer this configMap to Pod
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: envar-demo
+  labels:
+    purpose: demonstrate-envars
+spec:
+  containers:
+  - name: envar-demo-container
+    image: gcr.io/google-samples/node-hello:1.0
+    envFrom:
+	  - configMapRef:
+          name: my-configmap
+Note: In this pod, new environment variables will be added by reading them from a ConfigMap named ny-configmap.
+
+====================================================================================================================================================
+
+Work with Secrets:
+-------------------
+
+* Secrest allow you to securely store valus in a k8s cluster such as:
+  - username/passwords
+  - encryption keys
+  - certificates
+  - (etc)
+
+* Secrets can be accessed by pods when needed
+
+1. How are Secrets Accessed:
+
+   * To use a secret, a Pod needs to reference the secret.
+   * A secret can be used with a Pod in different ways:
+        - As files in a volume mounted on one or more of its containers.
+        - As environment variables set in the pod
+        - By the kubelet via the imagePullSecret field when pulling images for the Pod.
+
+2. Define a Secret from a file:
+
+   * Any values you wish to store in the secret are entered into a file:
+      ex: for username/password
+	  
+	      mysecret1.txt: username: user1
+		                 password: password1
+		  kubectl create secret generic mysecret1 \ --from-file=mysecret1.txt
+		  
+	  ex: for public ssh key:
+     
+          kubectl create secret generic sshpubkey \ --from-file=~/.ssh/id_rsa.pub
+
+3. Define a Secret as Key/Value Pairs from the CLI
+	  
+   * Values defined from the command line are plain text.
+     cmd:
+        kubectl create secret generic mysecret2 \
+          --from-literal=username=user2 \
+          --from-literal=password=password2
+		  
+4. Define a Secret as Key/Value Pairs in YAML
+   
+   * Value defined in the yaml file must be base64 encoded
+     cmd:
+         echo -n "user2" | base64
+		 echo -n "password2" | base64
+    
+     manifest:
+         apiVersion: v1
+		 kind: Secret
+		 metadata:
+		   name: mysecret2
+		 type: Opaque
+         data:
+           username: dXN1jI= (base64 encoded values)
+           password: cGFzc3dvmQy (base64 encoded values)
+	
+    kubectl apply -f mysecret2.yaml
+
+kubectl get secrests
+kubectl describe secrets mysecret1	
+kubectl describe secrets mysecret2
+
+Use Secrets:
+--------------
+
+Secret Stored as a File
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-file-secret
+spec:
+  containers:
+  - name: opensusepod
+    image: opensuse/leap
+	command:
+	  - "bin/bash"
+	  - "-c"
+	  - "sleep 10000"
+	volumeMounts:
+	  - name: secretmnt
+	    mountPath: "/mnt/secret"
+  volumes:
+  - name: secretmnt
+    secret:
+      secretName: mysecret1
+
+Secret Stored as Key/Value Pairs
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-file-secret
+spec:
+  containers:
+  - name: mypod
+    image: redis
+	env:
+	  - name: SECRET_USERNAME
+	    valueFrom:
+		  secretKeyRef:
+            name: mysecret2
+            key: username
+      - name: SECRET_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: mysecret2
+            key: password		
+	
+	
+5. Access Secrets:
+
+ 1. Secret Stored as a File
+
+  kubectl exec -it pod-file-secret -- bash
+     cat /mnt/secret/mysecret1.txt
+
+ 2. Secret Stored as Key/Value Pairs
+ 
+  kubectl exec -it pod-env-secret -- bash
+     echo ${SECRET_USERNAME}
+     echo ${SECRET_PASSWORD}
+	 
+=========================================================================================================================================
+
+Define and Access Secrets as Volumes:
+------------------------------------------
+
+vi mysecret1.txt
+username: user1
+password: password1
+
+kubectl create secret generic mysecret1 --from-file=mysecret1.txt
+kubectl get secrets
+
+
+vi podsecret1.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podsecret1
+spec:
+  containers:
+  - name: opensusepod
+    image: opensuse/leap
+	command:
+	  - "bin/bash"
+	  - "-c"
+	  - "sleep 10000"
+	volumeMounts:
+	  - name: secretmnt
+	    mountPath: "/mnt"
+  volumes:
+  - name: secretmnt
+    secret:
+      secretName: mysecret1
+	  
+kubectl apply -f podsecret1.yaml
+kubectl exec -it podsecret1 -- bash
+	cat /mnt/mysecret1.txt
+
+
+======================================================================================================
+
+Define & Access Secrets as Environment Variables:
+-------------------------------------------------
+
+cat mysecret2.yaml
+
+apiVersion: v1
+kind: Secret
+metadata:
+ name: mysecret2
+type: Opaque
+data:
+ # username=${echo "user2" | base64)
+ # password=${echo "password2" | base64)
+ username: dXNlcjIK
+ password: cGFzc3dvcmQyCg==
+ 
+ 
+kubectl apply -f mysecret2.yaml
+
+
+cat podsecret2.yaml
+You should see the following:
+
+apiVersion: v1
+kind: Pod
+metadata:
+ name: podsecret2
+spec:
+ containers:
+ - name: opensusepod
+ image: opensuse/leap
+ command:
+ - "bin/bash"
+ - "-c"
+ - "sleep 10000"
+ env:
+ - name: SECRET_USERNAME
+ valueFrom:
+ secretKeyRef:
+ name: mysecret2
+ key: username
+ - name: SECRET_PASSWORD
+ valueFrom:
+ secretKeyRef:
+ name: mysecret2
+ key: password
+
+kubectl apply -f podsecret2.yaml
+
+kubectl exec -it podsecret2 -- bash
+echo $SECRET_USERNAME
+echo $SECRET_PASSWORD
+
+=================================================================================================
+
+Work with Labels and Selectors:
+-----------------------------------
+Labels:
+--------
+* Metadata that can be attached to API objects such as pods that generally represent identity.
+* They can be attributes in manifests or assigned manually.
+
+Selectors:
+------------
+* Functions in kubectl that can query API objects that use labels.
+* Queries can be a simple get command or it an be an action such as delete that applies only to 
+  the labels that much the query.
+ 
+
+example to assign lables:
+
+cat ringo.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod4
+  labels:
+    env: "ringo"
+    band: beatles
+spec:
+  containers:
+  - name: sise
+    image: mhausenblas/simpleservice:0.5.0
+	ports:
+	- containerPort: 9876
+	
+cat davy.yml
+
+follow the same ringo.yaml
+
+kubectl apply -f ./
+
+kubectl get pods --selector owner=beatle
+kubectl get pods --selector band=beatle
+
+kubectl label pods pod5 surname=jones
+kubectl get pods -l surname=jones
+
+kubectl get pods --show-labels
+
+kubectl delete pods --selector owner=beatle
+kubectl delete pod -l 'band in (beatles, monkees)'
+
+==================================================================================================================================================
+
+Configure Node Affinity in K8S:
+-------------------------------
+
+1. options for Pod/ Node Affinity
+   * K8s provides a couple of options to create pod/node affinity
+   * Each option's approach is slightly different though the end results are similar.
+   * options ( - Node selector/ - Taints and Tolerations)
+
+Node Selectors:
+---------------
+* Lables are applied to Nodes
+* Pods specs are updated with NodeSelectors for the corresponding labels.
+* Pods will prefer to be scheduled on nodes with labels that match their nodeseector.
+* Approach: Attraction vs Rejection.
+
+kubectl label nodes worker01 diktype-ssd
+
+ex: Manifest
+------------
+nodeselector.yaml
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    env: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+	imagePullPolicy: IfNotPresent
+  nodeSelector:
+    disktype: ssd
+
+
+Taints and Tolerations:
+------------------------
+* Taints are applied to Nodes
+* Pods specs are updated with tolerations for the corresponding taints.
+* The nodes will only allow pods with tolerations for their nodes' taints to be scheduled on them.
+* Approach: Rejection vs Attraction.
+
+kubectl taint nodes worker01 disktype=ssd:NoSchedule
+
+ex: Manifest
+------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    env: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+	imagePullPolicy: IfNotPresent
+  tolerations:
+  - key: "disktype"
+    operator: "Equal"
+	value: "ssd"
+	effect: "NoSchedule"
+	
+
+kubectl label node worker01.example.com band=beatles
+kubectl label node worker02.example.com band=monkees
+
+kubectl get nodes --show-labels
+
+kubectl describe node worker01.example.com
+
+
+kubectl apply -f nodeselector.yaml
+
+kubectl get pods -o wide --selector band=beatles
+kubectl get pods -o wide --selector band=monkees
+
+kubectl delete pods -l 'band in (beatles, monkees)'
+
+
+Task 1: Add Taints to Nodes:
+----------------------------
+
+kubectl taint node worker01.example.com band=beatles:NoSchedule
+kubectl taint node worker02.example.com band=monkees:NoSchedule
+kubectl taint node worker03.example.com band=beachboys:NoSchedule
+
+kubectl describe node worker01.example.com
+
+kubectl apply -f taints_tolerations.yaml
+kubectl get pods
+kubectl get pods -o wide --selector band=beatles
+kubectl get pods -o wide --selector band=beachboys
+kubectl get pods -o wide --selector band=monkees
+kubectl delete pods -l band=monkees
+
+kubectl apply -f davy.yaml
+kubectl apply -f micky.yaml
+kubectl apply -f michael.yaml
+kubectl apply -f peter.yaml
+
+kubectl get pods -o wide --selector band=monkees
+
+kubectl get pods --show-labels
+kubectl delete pods -l 'band in (beatles, monkees, beachboys)'
+
+kubectl taint node worker01.example.com band=beatles:NoSchedule
+kubectl taint node worker02.example.com band=monkees:NoSchedule
+kubectl taint node worker03.example.com band=beachboys:NoSchedule
+	  
+kubectl describe node worker01.example.com
+
+
+==================================================================================================================================================
+
+Scale out Application:
+------------------------
+
+1. Horizontally Scale an Application:
+
+* When deploying or redeploying an application, the replica spec can be defined.
+* If the number is changed and the manifest is redeployed, then the matching number of pod replicas will change also.
+
+ex: Manifest
+
+nginx-deployment.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    owner: nginx
+spec:
+ selector:
+   matchLabels:
+     app: nginx
+ replicas: 4
+ template:
+   metadata:
+     labels:
+       app: nginx
+   spec:
+     containers:
+     - name: nginx
+       image: nginx:1.9.0
+       ports:
+       - containerPort: 80
+	
+
+Horizontally Scale an Application:
+-----------------------------------
+
+Apps can be scaled using the cmd line or by updating a manifest.
+
+kubectl apply -f nginx-deployment.yaml
+or 
+kubectl scale deployments nginx-deployment --replicas=4	
+
+Horizontal Pod Autoscaler:
+----------------------------
+
+Monitors metrics of the cluster and uses these to automatically scale pod replicas out and back.
+
+Ex:
+	* App to be scaled: php-apache
+	* The minimum number of pods:1
+	* The maximum number:10
+	* If the CPU Utilization of the node is >_ 50%, then more pods will be created.
+	
+	Note: Other metrics can also be used with an autoscaler.
+	
+Manifest:
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: php-apache
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+	kind: Deplotment
+	name: php-apache
+  minReplicas: 1
+  maxreplicas: 10
+  targetCPUUtilizationPercentage: 50
+	
+
+Scale a Deployment:
+----------------------
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 2
+  revisionHistoryLimit: 5
+  minReadySeconds: 20
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+       maxUnavailable: 25%
+       maxSurge: 2
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.9.0
+        ports:
+        - containerPort: 80
+	
+	
+kubectl apply -f nginx-scale.yaml
+
+to scale up kubectl scale deployment nginx-deployment --replicas=10
+
+
+Configure Horizontal Pod Autoscaling:
+-------------------------------------
+
+Create Manifest files.
+
+vi app/php-apache.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: php-apache
+  name: php-apache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: php-apache
+  strategy:
+    rollingUpdate:
+	  maxSurge: 1
+	  maxUnavalible: 1
+	tupe RollingUpdate
+  template:
+    metadata:
+	  labels:
+	    run: php-apache
+	spec:
+      containers:
+      - image: gcr.io/google_containers/hpa-example
+        name: php-apache
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+
+
+vi app/php-apache-autoscaler-v2.yaml
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: php-apache
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+	kind: Deplotment
+	name: php-apache
+  minReplicas: 1
+  maxreplicas: 10
+  targetCPUUtilizationPercentage: 50
+  
+
+kubectl apply -f app/
+
+kubectl get deployments.apps
+kubectl get horizontalpodautoscalers.autoscaling
+
+kubectl run -i --tty load-generator --rm --image=busybox --restart=Never -- /bin/sh -c "while sleep 0.01; do wget -q -O- http://php-apache; done"
+
+$ kubectl run -i — tty load-generator — image=busybox /bin/sh
+Hit enter for command prompt
+$ while true; do wget -q -O- http://php-apache.default.svc.cluster.local; done
+
+
+kubectl run -it --rm load-generator --image busybox -- /bin/sh
+while true; do wget -q -O- http://node-hpa:3000; done-
+
+==============================================================================================================================================================================================
+==============================================================================================================================================================================================
+
+Application Management on K8S Kustomize
+******************************************
+
+1. Understand Kustomize Concepts
+2. Use Kustomize to Deploy Applications
+
+
+
+Kustomize?
+----------
+* Simply said, Kustomize is:
+   - Native k8s configuration mgmt
+   - A declarative tool that works directly with yaml
+   - A template-free way to customize application configuration.
+   
+Kustomize K8S Native?:
+--------------------------
+* Built into kubectl as of v 1.14 (kubectl -k)
+* Operators on standard k8s objects.
+* Uses plain yaml and std manifest file structure
+* Matches the same "declarative: ideology as k8s
+
+Kustomize Declarative:?
+------------------------
+* You declare exactly what you want in std yaml manifest and kustomize generates the final manifest.
+
+Kustomize Template Free:?
+----------------------------
+* You do not provide a templatized version of the manifest
+* You do provide std, valid, independently deployable k8s manifests
+* Acts as a yaml patching system rather than a template engine ( it acts as a" stream editor"
+  like sed to add/delete/update the final manifest)
+* What you provide can be "stackable" in that each can be applied to the final manifest in layers.
+
+
+
+
+2. Use Kustomize to Deploy Applications
+-------------------------------------------
+
+Ex Directory Structure:
+-----------------------
+
+app\
+    -base\
+	      -deployment.yaml
+		  -service.yaml
+		  -kustomization.yaml
+	-overlays\
+              -dev\
+                   -nodeport.yaml
+                   -kustomization.yaml
+ 			  -stage\
+                     -nodeport.yaml
+					 -replicas.yaml
+					 -kustomization.yaml
+			  --prod\
+                     -nodeport.yaml
+                     -replicas.yaml
+                     -kustomization.yaml
+
+vi deployment.yaml                      
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment # prod-nginx-deployment
+  labels:
+    env: "apps"
+	owner: nginx
+	variant: prod
+spec:
+  selector:
+    matchlabels:
+      app: nginx
+  replicas: 2 # 4
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.7.9 
+        ports:
+        - containerPort: 80
+		
+
+vi service.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service #prod-nginx-service
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+	  #NodePort: 30100
+  selector:
+    app: nginx
+
+vi Kustomization.yaml
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+#namePrefix: prod-
+#commonLabels:
+#  variant: prod
+#bases:
+#- ../../base
+#patches:
+#  - nodeport.yaml
+#  - replicas.yaml
+#images:
+#  - name: nginx    
+#    newTag: 1.9.0
+resources:
+  - deployment.yaml
+  - service.yaml
+
+
+kubectl apply -k app/base/
+or
+kubectl apply -k app/overlays/prod/
+
+
+===============================================================================================================================================================
+===============================================================================================================================================================
+
+Application Management on K8S with Helm
+******************************************
+
+1. Undersatand Basic Helm Concepts
+2. Manage Applications with Helm
+
+Helm?
+-----
+* Helm is a tool for managing packages of pre-configured K8S resources.
+* Use Helm to:
+   - Find and use popular s/w packages
+   - Share your own applications
+   - Create reproducible builds of your k8s applications.
+   - Intelligently manage your k8s manifest files
+   - Manage releases of Helm Packages.
+
+3 Central Concepts to Helm:
+----------------------------
+
+      Chart                               Repository                            Release
+----------------------------	    -----------------------------      -------------------------------
+* A chart is a Helm package        * A Repository is the place where   * A Release is an instance of a chart
+                                     charts can be collected & shared    running in a K8S cluster.
+* Charts contain all of the                                            * One chart can be installed multiple  
+  resources definitions necessary                                        times in to the same cluster. 
+  to run an app, tool, or service 
+  inside of a k8s cluster  
+                                                                       * Each times it is installed, a new 
+																	     Release is created.
+
+Helm & Templates:
+-----------------
+* Helm uses templating to build the final manifest by replacing values in the template manifest with 
+  values provided on the CLI from the values file.
+* Templates are created using Go's templating syntax (i.e lots of curly brackets in a yaml file)
+
+
+Helm Chart Structure:
+---------------------
+
+* Helm charts are a directory structure stored in an archive file
+
+ex: chartname/
+              -Chart.yaml
+			  -README.md
+              -values.yaml
+              -templates/
+                         -templatefile.yaml
+                         -templatefile1.yaml
+
+* Chart.yaml provide description of the helm chart
+* values.yaml contains all possible values used in the templates.
+* templates directory contains template yaml files used to generate the final yaml files.						 
+
+
+Manage Apps with Helm:
+-----------------------
+
+syntax: helm repo MODE OPTIONS
+
+Mode/Option:
+------------
+add    - add a chart repository
+remove - remove a chart repository
+list   - list chart repositories
+update - update info of avalible charts
+
+ex:
+
+helm repo add bitnami
+helm remo update
+
+
+syntax: helm search MODE OPTIONS
+
+Mode/Option:
+------------
+hub <chart>  - search the Helm Hub for a chart
+repo <chart> - search the added repositories for a chart
+
+ex: 
+
+helm search repo nginx
+
+**Display info about charts******
+
+synatax: helm show SUBCMD REPO/CHART OPTIONS
+
+Subcmd/Option:
+----------------
+all    - show all info for a chart
+chart  - show chart's definition
+readme - show chart's README
+values - show chart's values
+
+
+*** Install Charts********
+
+synatax: helm install NAME REPO/CHART OPTIONS
+
+Mode/Option:
+------------
+-f / --values <file> - specify values for the chart in a values file
+--set <value>        - specify values for the chat on the CLI format: key=value[,key=value]
+--generate-name      - generate a release name if on is not provided
+--dry-run            - simulate an install
+-n / --namespace     - specify the namespace to install into
+
+helm install nginx bitnami/nginx -f nginx-values.yaml
+helm status nginx 
+
+****Uninstall a Release************
+
+syntax: helm uninstall NAME OPTIONS
+
+option:
+-----------
+--keep-history   - remove all resources and mark as deleted but retain the release history
+--dry-run        - simulate an uninstall
+-n / --namespace - specify the namespace the release is in
+
+
+***Upgrade a Release****************
+
+sysntax: helm upgrade RELEASE REPO/CHART OPTIONS
+
+Option
+--------
+-f / --values <file> - specify values for the chart
+--history-max        - limit number of revesions saved per release (default=10)
+--dry-run            - simulate an install
+-n / --namespace     - specify the namespace to install into
+
+
+
+**** Add a repository to Helm*********
+
+helm repo list
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+
+helm search repo dokuwiki
+helm inspect values bitnami/dokuwiki | less
+
+dokuwiki-values.yaml
+
+dokuwikiUsername: user
+dokuwikiPassword: password123
+service:
+ type: NodePort
+persistence:
+ enabled: false
+# storageClass: nfs-client
+# accessMode: ReadWriteOnce
+# size: 8Gi
+
+
+
+helm install mywiki -f ~/dokuwiki-values.yaml bitnami/dokuwiki
+
+helm status mywiki
+kubectl get services | grep mywiki
+
+helm uninstall mywiki --keep-history
+
+helm inspect values bitnami/dokuwiki
+
+
+																		 
+===============================================================================================================================================================
+===============================================================================================================================================================
+
+Ingress Networking with an Ingress Controller in K8s:
+********************************************************
+
+1. Understand Ingress Networking for Applications
+2. Work with an Ingress Controller
+
+
+Ingress Cintroller?:
+---------------------
+* Ingress exposes HTTP and HTTPS routes from outside the cluster to services within the cluster.
+* Traffic routing is controlled by rules defined on the Ingress resource.
+* Ingress can provide loadbalancing, SSL termination and name-based virtual hosting.
+* You have the choice of either using NodePort or an External IP addresss for your ingress.
+* SUSE RKE provides an Infress controller based on the NGINX ingress controller and K3s is based on the Traffic ingress controller.
+
+
+NodePort Controller Values:
+---------------------------
+* The NodePort Values specify the NodePort port rather than letting a random one get choosen.
+
+* This is a great resource for users with smaller installations that want to assign a single IP to a group of applicaions in a production ebvironment.
+
+
+Ex:
+
+#Enable the creation of pod security policy 
+podSecurityPolicy:
+  ebable: false
+
+# Create a specific service account
+serviceAccount:
+  create: true
+  name: nginx-ingress
+
+#Publish services on port HTTPS/30443
+#These services are exposed on each node
+controller:
+  service:
+    enableHttp: false
+    type: NodePort
+    nodePorts:
+      https: 30443
+	  
+
+Internal Port Values:
+----------------------
+* When configuring an app that will use an ingress, it is important that the service related to that app be configured to listen on a specific internal port.
+
+ex:
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: example-service
+spec:
+  selector:
+    app: example
+  ports:
+    - port: 1234
+
+Ingress Rules:
+-------------------
+* After the ingress controller has been successfully deployed, the ingresss rules can be defined in a seperate manifest.
+  (Each service specified in this manifest will send traffic on that internal port 1234 on which the application services will be listening.)
+ 
+ex:
+-------
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: caasp-ingress
+  annotations:
+    ingresss.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+        - path: /red
+          backend:
+            serviceName: red-service
+            servicePort: 1234
+        - path: /green
+          backend:
+            serviceName: green-service
+            servicePort: 1234
+        - path: /blue
+          backend:
+            serviceName: blue-service
+            servicePort: 1234	
+
+Configure INgrrss for an App:
+--------------------------------
+
+Description:
+------------
+	In this exercise you use the Ingress Controller to create the simple websites
+	and then access them through a single address.
+
+Dependencies:
+-------------
+	An Ingress controller (Nginx, Traefik, etc) must be deployed in the cluster
+	before performing this exercise.
+			
+Task 1: Deploy Websites
+
+1. On the management workstation, in a terminal, enter the following
+commands to switch to the directory containing the ingress manifests and
+display the contents of one of the app yaml files:
+
+cat blue.yaml
+
+kind: Pod
+apiVersion: v1
+metadata:
+ name: blue-app
+   labels:
+     app: blue
+spec:
+ containers:
+   - name: blue-app
+     image: hashicorp/http-echo
+     args:
+       - “-text=blue
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: blue-service
+spec:
+  selector:
+    app: blue
+  ports:
+    - port: 5678 # Default port for image
+
+Notice that this manifest defines both an application and a service for the
+application. In this case the “blue-app” will return the text “blue” when queried.
+The red and green apps are configured similarly and will return their respective colors.
+
+2. Enter the following commands to deploy the test websites:
+
+kubectl apply -f green.yaml
+kubectl apply -f blue.yaml
+kubectl apply -f red.yaml
+
+kubectl get pods
+
+Task 2: Deploy the Ingress Rules
+
+1. On the management workstation, in a terminal, enter the following command
+to display the contents of the color-routes.yaml file:
+
+cat color-routes.yaml
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: color-ingress
+  annotations:
+    ingress.kubernetes.io/rewrite-target: /
+spec:
+ rules:
+ - http:
+   paths:
+     - path: /red
+       pathType: Prefix 
+       backend:
+         service
+		   name: red-service
+           port: 5678
+     - path: /green
+       pathType: Prefix 
+       backend:
+         serviceName: green-service
+         servicePort: 5678
+     - path: /blue
+       pathType: Prefix 
+       backend:
+         serviceName: blue-service
+         servicePort: 5678
+
+Notice in the rules section that each of the color named apps is given a
+corresponding path that references the app’s service port. This will create a
+new ingress for the green, blue, and red websites by forwarding any request to
+the /red, /green, or /blue directories to the service with that name.
+
+2. Enter the following command to deploy the ingress routing for the websites:
+kubectl apply -f color-routes.yaml
+
+3. Confirm that the ingress is available:
+kubectl get ingresses.extensions
+
+You should see the color-ingress available on port 80.
+
+4. Enter the following command to review the ingress:
+kubectl describe ingresses.extensions color-ingress
+
+In the rules sections you should see:
+ Host Path Backends
+ ---- ---- --------
+ *
+ /red red-service:5678 (10.42.4.63:5678)
+ /green green-service:5678 (10.42.4.63:5678)
+ /blue blue-service:5678 (10.42.4.63:5678)
+
+As in the color-route.yaml file, the /red directory will be forwarded to the
+red-service, etc.
+
+Task 3: Test the Ingress
+
+1. On the management workstation, in a terminal, enter the following command
+to test the ingress using the curl command:
+curl http://worker01.example.com/red
+curl http://worker01.example.com/green
+curl http://worker01.example.com/blue
+
+The output from each command should reflect the URL that command is
+pointing to. 
+
+
+===============================================================================================================================================================
+===============================================================================================================================================================
+
+Storage in K8S:
+******************************************
+
+1. Understand K8S Storage Concepts
+2. Work with Persistent Storage in Storage Classes
+
+
+Persistent Volume Storage:
+---------------------------
+* With PVs you can persistent storage to your pods.
+* Multiple storage back-end types are supported by k8s (i.e NFS, Longhorn, Ceph, etc)
+* A PV must first be defined before that volume can be claimed for use.
+* Claimed volumes can be attached to pods.
+
+Voulumes:
+---------
+* A volume is storage that is ready to be used
+ex:
+ - A DB needs data for its data
+ - An application needs a place to store logs
+ - A web server needs content to display.
+
+* A PV should be avaible as long as the application needs it.
+* A PVC is used by an application to reach out to the PV.
+
+PV and PVC:
+-----------
+
+PV is storage that is ready to be used.
+PVC is how the storage is connected to the application. It is the hand tht utilizes the storage.
+
+PV:
+---
+* Admin/Storage Class provisions them
+* Users/Pods claim them
+* Volumes have an independent lifetime and fate
+* Can be handed-off b/w pods
+* Lives until user is done with it
+* Dynamically "scheduled" and managed (like nodes and pods)
+
+Storage Classes:
+----------------
+* Storage classes can be defined that cloud map to quality-of-service levels or other polices defined by administartors.
+* When combined with backend provisioners they provide for dynamic creation of persistent storage volumes.
+* Storage columes are automatically provided on-demand when a PVC is made.
+
+
+Work with Persistent Storage in StorageClasses:
+-----------------------------------------------
+PV:
+----
+* Define a storage volume that already exists that can be used by cluster resources.
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-vol-01
+  labels:
+    volname: vol-01
+spec:
+  capacity:
+    storage: 1Mi
+  accessModes:
+    -ReadWriteMany
+  storageClassName: ""
+  persistentVolumeReclaimPolicy: Recycle
+  nfs:
+    server: 172.30.201.2
+	path: "/srv/nfs/vol-01"
+
+kubectl apply -f persistentvolume.yaml
+kubectl get pv
+
+
+PVC:
+----
+* Request to use storage
+* Can request specif properties such as size, acces modes, etc.
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nfs-claim
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+	  storage: 1Mi
+  storageClassName:
+  selector:
+    matchLabels:
+	  volname: "vol-01"
+	  
+kubectl apply -f persistentvolumeclaim.yaml
+kubectl get pvc
+
+PVC(storageClass)
+-----------------
+* Can request a volume from a specific storageClass.
+* Volume could be dynamically created volume using a storageClass provisioner.
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nfs-sc-claim
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Mi
+  storageClassName: "nfs-client"
+
+kubectl apply -f persistentvolumeclaim.yaml
+kubectl get pvc
+
+Use a PV:
+----------
+* When using a PV you specify both the mountpoint and the claim that is associated with the volume.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-web
+spec:
+  selector:
+    matchLabels:
+	  app: nfs-web
+	replicas: 1
+	template:
+	  metadata:
+	    labels:
+		  app: nfs-web
+	  spec:
+        containers:
+        - name: web
+          image: nginx:1.9.0
+          ports:
+            - name: web
+              containerPort: 80
+          volimeMounts:
+            - name: nfs-vol-01
+              mountPath: "/usr/share/nginx/html"
+        volumes:
+        - name: nfs-vol
+          persistentVolumeClaim:
+            claimName: nfs-claim
+			
+# Specify the mountpoint inside the container
+volimeMounts:
+   - name: nfs-vol-01
+     mountPath: "/usr/share/nginx/html"
+
+# Reference the persistentVolumeClaim
+volumes:
+- name: nfs-vol
+  persistentVolumeClaim:
+    claimName: nfs-claim
+	
+
+Configure Persistent Storage with NFS
+-------------------------------------
+In this exercise, you configure a persistent volume on an NFS server. You then
+create a pod that updates a file on the persistent volume and a pod that
+exports the file via http.
+
+Task 1: Create the Persistent Volume on the NFS Server
+
+1. In the management workstation, in a terminal, enter the following commands to create the directories to use as the persistent volumes:
+
+sudo mkdir -p /srv/nfs/vol-01
+sudo chmod 777 /srv/nfs/vol-01
+sudo mkdir -p /srv/nfs/vol-02
+sudo chmod 777 /srv/nfs/vol-02
+
+The /srv/nfs/vol-01 and /srv/nfs/vol-02 directories should now exist. 
+The /etc/exports file was already pre-configured to export the /srv/nfs directory.
+
+
+Task 2: Examine the Manifests for the Persistent Volumes
+
+1. Enter the following commands to change to the directory containing the nfspv manifests and display the contents of the nfs-pv-vol-01.yaml file:
+cd ~/course_files/KUB201/labs/manifests/nfs-pv/
+cat nfs-pv-vol-01.yaml
+You should see the following:
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-vol-01
+  labels:
+    volname: "vol-01"
+spec:
+  capacity:
+    storage: 1Mi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Recycle
+  nfs:
+    server: 172.30.201.2
+    path: "/srv/nfs/vol-01"
+
+Note label assigned to the volume and how the NFS shares are defined.
+
+2. Enter the following command to display the contents of the nfs-pv-vol02.yaml file:
+
+cat nfs-pv-vol-02.yaml
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-vol-02
+  labels:
+    volname: "vol-02"
+spec:
+  capacity:
+    storage: 1Mi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Recycle
+    nfs:
+      server: 172.30.201.2
+      path: "/srv/nfs/vol-02"
+
+Note label assigned to the volume and how the NFS shares are defined.
+
+Task 3: Examine the Manifest for the Persistent Volume Claim
+
+1. Enter the following command to display the contents of nfs-pvc.yaml file:
+
+cat nfs-pvc.yaml
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nfs-claim
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Mi
+ storageClassName: ""
+ selector:
+   matchLabels:
+     volname: "vol-02"
+
+Notice how the Persistent Volume Claim doesn’t define the storage volume,
+only the Persistent Volume by name. Also notice that the storageClassName is
+empty and notice which label is specified in the selector section.
+
+
+Task 4: Examine the Manifest for the Busybox Instance
+
+1. Enter the following command to display the contents of nfs-busyboxdeployment.yaml file:
+
+cat nfs-busybox-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-busybox
+spec:
+  selector:
+    matchLabels:
+      app: nfs-busybox
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nfs-busybox
+    spec:
+      containers:
+        - image: busybox
+          command:
+          - sh
+          - -c
+          - 'while true; do date > /mnt/index.html; hostname >> /
+mnt/index.html; sleep $(($RANDOM % 5 + 5)); done'
+          imagePullPolicy: IfNotPresent
+          name: busybox
+          volumeMounts:
+            # name must match the volume name below
+            - name: nfs-vol
+              mountPath: "/mnt"
+      volumes:
+      - name: nfs-vol
+        persistentVolumeClaim:
+          claimName: nfs-claim
+
+Notice how the manifest is describing which mounts and which Persistent
+Volume Claim is being utilized to use the NFS storage.
+
+
+Task 5: Examine the Manifest for the Webserver Instance
+
+1. Enter the following command to display the contents of nfs-webdeployment.yaml file:
+
+cat nfs-web-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-web
+spec:
+  selector:
+    matchLabels:
+      app: nfs-web
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nfs-web
+  spec:
+    containers:
+    - name: web
+      image: nginx:1.9.0
+      ports:
+        - name: web
+          containerPort: 80
+      volumeMounts:
+        - name: nfs-vol
+          mountPath: "/usr/share/nginx/html"
+    volumes:
+    - name: nfs-vol
+      persistentVolumeClaim:
+        claimName: nfs-claim
+ 
+Notice how the manifest is describing which mounts and which Persistent
+Volume Claim is being utilized to use the NFS storage
+
+
+Task 6: Examine the Manifest for the Web Service
+
+1. Enter the following command to display the contents of nfs-webservice.yaml file:
+
+cat nfs-web-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nfs-web
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      nodePort: 30080
+  selector:
+    app: nfs-web
+
+Note the nodePort used to access the web server (30080).
+
+Task 7: Deploy the Objects
+
+1. To deploy the volumes/pods/service, open a terminal and enter the following
+command:
+
+kubectl apply -f ./
+
+You should see the following were created (not necessarily in this order):
+
+deployment.apps/nfs-busybox created
+persistenvolume/nfs-vol-01 created
+persistenvolume/nfs-vol-02 created
+persistenvolumeclaim/nfs-claim created
+deployment.apps/nfs-web created
+service/nfs-web created
+
+2. Enter the following command to view the deployments:
+
+kubectl get deployments
+
+You should see the nfs-busybox and nfs-web deployments listed.
+
+3. Enter the following command to view the pods:
+
+watch kubectl get pods
+
+You should see the pods for the nfs-busybox and nfs-web deployments listed.
+
+4. Enter the following command to view the persistent volumes:
+
+kubectl get pv
+
+You should see the persistent volumes nfs-vol-01 and nfs-vol-02 listed. Notice
+that for nfs-vol-01:
+
+Its RECLAIM POLICY is Recycle,
+Its STATUS is Available
+The CLAIM it is bound to is empty
+
+Notice that for nfs-vol-02:
+
+Its RECLAIM POLICY is Recycle,
+its STATUS is Bound
+The CLAIM it is bound to is default/nfs-sc-claim
+
+5. Enter the following command to view the persistent volume claims:
+
+kubectl get pvc
+
+You should see the persistent volume claim nfs-claim listed.
+Notice that its STATUS is Bound and the VOLUME it is bound to is nfs-vol-02.
+
+
+Task 8: Test the Persistent Data
+
+1. On the management workstation, open a web browser and point to:
+
+http://worker01.example.com:30080
+
+You will see the content of the index.html file. When you refresh the page you
+should see the time stamp updating. (Also notice that if you change the URL to
+the different worker nodes you will see the same thing.)
+
+Task 9: Remove the Objects from the Cluster
+
+1. In the first terminal, enter the following command to delete all of the objects:
+kubectl delete -f ./
+You should see that the objects were deleted.
+
+Summary:
+In this exercise, you examined manifests for two persistent volumes, a
+persistent volume claim, a pod to that attached to the volume and writes
+data to an index.html file in the volume, and a web server that attaches to
+the volume and displays the index.html file. You then discovered which
+volume the pods were attached to and verified that the index.html file was
+being updated by looking at the file both on the NFS volume and the web
+server. Finally you removed the deployments.
+
+
+Configure Persistent Storage with a NFS StorageClass:
+------------------------------------------------------
+
+Task 1: Deploy the NFS storageClass
+
+1. On the management workstation, enter the following commands to add the
+helm repository that contains the storageClass provisioner
+
+helm repo add nfs-subdir-external-provisioner \
+ https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/
+
+helm repo update
+
+You should see that the repo was added and all helm repos were updated.
+
+2. Enter the following command to deploy the storageClass provisioner:
+
+helm install nfs-subdir-external-provisioner \
+ nfs-subdir-external-provisioner/nfs-subdir-external-provisioner \
+ --set nfs.server=172.30.201.2 \
+ --set nfs.path=/srv/nfs
+
+The storageClass provisioner should be deployed.
+
+3. Enter the following commands to verify the deployment:
+
+kubectl get deployments
+
+You should see the nfs-subdir-external-provisioner deployment listed.
+
+kubectl get storageclasses
+
+You should see the nfs-client storageClass listed.
+
+Task 2: Examine the Manifest for the Persistent Volume
+
+4. On the management workstation, enter the following commands to change
+to the directory containing the nfs-pv-storage-class manifests and display
+the contents of the nfs-sc-pvc.yaml file:
+
+cd ~/course_files/KUB201/labs/manifests/nfs-pv-storage-class/
+
+cat nfs-sc-pvc.yaml
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nfs-sc-claim
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: "nfs-client"
+  resources:
+    requests:
+      storage: 1Mi
+Notice a value is specified in the storageClassName.
+
+
+Task 3: Examine the Manifest for the Busybox Instance
+
+1. Enter the following command to display the contents of nfs-sc-busyboxdeployment.yaml file:
+
+cat nfs-sc-busybox-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-sc-busybox
+spec:
+  selector:
+    matchLabels:
+      app: nfs-sc-busybox
+  replicas: 1
+ template:
+   metadata:
+     labels:
+       app: nfs-sc-busybox
+   spec:
+     containers:
+     - image: busybox
+       command:
+         - sh
+         - -c
+         - 'while true; do date > /mnt/index.html; hostname >> /
+mnt/index.html; echo "[storageClass]" >> /mnt/index.html; sleep $
+(($RANDOM % 5 + 5)); done'
+       imagePullPolicy: IfNotPresent
+       name: busybox
+       volumeMounts:
+         # name must match the volume name below
+         - name: nfs-sc-vol
+           mountPath: "/mnt"
+     volumes:
+     - name: nfs-sc-vol
+       persistentVolumeClaim:
+         claimName: nfs-sc-claim
+
+Notice how the manifest is describing which mounts and which Persistent
+Volume Claim is being utilized to use the NFS storage.
+
+
+Task 4: Examine the Manifest for the Webserver Instance
+
+1. Enter the following command to display the contents of nfs-sc-webdeployment.yaml file:
+
+cat nfs-sc-web-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-sc-web
+spec:
+  selector:
+    matchLabels:
+      app: nfs-sc-web
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nfs-sc-web
+    spec:
+      containers:
+      - name: web
+        image: nginx:1.9.0
+        ports:
+          - name: web
+            containerPort: 80
+        volumeMounts:
+          - name: nfs-sc-vol
+            mountPath: "/usr/share/nginx/html"
+      volumes:
+      - name: nfs-sc-vol
+        persistentVolumeClaim:
+          claimName: nfs-sc-claim
+
+Notice how the manifest is describing which mounts and which Persistent
+Volume Claim is being utilized to use the NFS storage
+
+Task 5: Examine the Manifest for the Web Service
+1. Enter the following command to display the contents of nfs-sc-webservice.yaml file:
+
+cat nfs-sc-web-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nfs-sc-web
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      nodePort: 30180
+  selector:
+    app: nfs-sc-web
+
+Note the nodePort used to access the web server (30180).
+
+Task 6: Deploy the Objects
+
+1. To deploy the volumes/pods/service, open a terminal and enter the following
+command:
+
+kubectl apply -f ./
+
+You should see the following were created (not necessarily in this order):
+
+deployment.apps/nfs-sc-busybox created
+persistenvolumeclaim/nfs-sc-claim created
+deployment.apps/nfs-sc-web created
+service/nfs-sc-web created
+
+2. Enter the following command to view the deployments:
+
+kubectl get deployments
+
+You should see the nfs-sc-busybox and nfs-sc-web deployments listed.
+
+3. Enter the following command to view the pods:
+
+watch kubectl get pods
+
+You should see the pods for the nfs-sc-busybox and nfs-sc-web
+deployments listed.
+
+4. Enter the following command to view the persistent volume claims:
+
+kubectl get pv
+
+You should see the persistent volume named pvc-<random_string> listed.
+Notice that:
+
+Its RECLAIM POLICY is Delete
+Its STATUS is Bound
+The CLAIM it is bound to is default/nfs-sc-claim
+
+5. Enter the following command to view the persistent volume claims:
+
+kubectl get pvc
+
+You should see the persistent volume claim nfs-sc-claim listed.
+Notice that its STATUS is Bound and the VOLUME it is bound to is the one in the
+previous step.
+
+Task 7: Examine the Persistent Storage
+
+1. On the management workstation, enter the following command to display the
+contents of the NFS exported directory:
+
+ls -l /srv/nfs/
+
+You should see a new directory named:
+
+default-nfs-sc-claim-pvc-<random_numbers_and_letters>
+This is the volume that was created by the NFS storageClass.
+
+2. Enter the following command to to view the contents of the index.html file in
+that directory:
+
+cat /srv/nfs/default-nfs-sc-claim*/index.html
+You should see the data that was written by the busybox container.
+
+Task 8: Test the Persistent Data
+
+1. On the management workstation, open a web browser and point to:
+http://worker01.example.com:30180
+
+You will see the content of the index.html file. When you refresh the page you
+should see the time stamp updating. (Also notice that if you change the URL to
+the different worker nodes you will see the same thing.)
+
+Task 9: Remove the Objects from the Cluster
+
+1. In the terminal, enter the following commands to delete all of the objects:
+kubectl delete -f ./
+
+You should see that the objects were deleted
+
+
+Task 10: Reexamine the Persistent Storage
+
+1. Enter the following command to display the contents of the NFS exported
+directory:
+
+ls -l /srv/nfs/
+
+You should see a new directory named:
+archived-default-nfs-sc-claim-pvc-<random_numbers_and_letters>
+Notice that the persistent volume directory that was created has now been
+renamed by the NFS storageClass. This behavior is configurable as you can
+edit a value in the storage class’s deployment that tells it to delete the
+persistent volume directory rather then rename (archive) it.
+
+2. Enter the following command to remove the directory:
+
+sudo rm -rf /srv/nfs/archived-default-nfs-sc-claim*
+
+The directory should be gone.
+
+Summary:
+
+In this exercise, you deployed the storageClass provisioner, created manifests
+for a persistent volume claim using a storageClass, a pod to that attached to
+the volume and writes data to an index.html file in the volume, and a web
+server that attaches to the volume and displays the index.html file. You then
+verified that the index.html file was being updated by looking at the file both
+on the NFS volume and the web server. Finally you removed the deployments
+and the directory on the NFS server that corresponded to the persistent
+volume
+
+
+===============================================================================================================================================================
+===============================================================================================================================================================
+
+Resources Usage Control in K8S
+******************************************
+
+1. Undersatand Resource Usage Control in K8S
+2. Work with Limit Ranges
+3. Work with Resource Quotas
+
+1. Undersatand Resource Usage Control in K8S:
+----------------------------------------------
+
+the problem: By default containers run with unbounded computer resources.
+
+Meaning:
+    A pod or even a single container could potentially monopolize all avaliable resources.
+
+Solutions to the Problem:
+-------------------------
+
+			Limit Ranges 										Resource Quotas
+	     -----------------                                   --------------------
+ * Set at the namespace level but applied at         * Set and applied at the namespace level.
+   the pod/container level.
+ * Enforce minimum/maximum compute resouces          * Constrain aggregate resource consumption
+   usage per pod/container.                            per namespace.
+ * Enforce minimum/maximum storage request           * Can limit both number of objects and total
+   per PVC                                             amount of resource consumed. 
+ * Set default request/limit for compute
+   resources in a namespace. 
+
+Work with Limit Ranges:
+-----------------------
+
+Limit vs Request:
+ * When a pod/container is created, by default it is unconstrained with regards to resource consumption.
+ * Pods/computers can Request resources and Limits can be placed on resource consumption.
+ * Pods/Containers can specify both Requests and Limits.
+
+			Limit:							       Request
+			------							       --------
+* Upper/lower bound on the amount of a    		* The specific amount of a resource a pod
+  resource a pod/container can consume.    		  wants or needs to run.
+
+Limit Ranges:
+-------------
+* A limit range is created in a namespace.
+* A limitrange can constrain resources such as CPU, memory and storage.
+* A limit range can define:
+   - Maximum and minimum bounds for limits.
+   - Maximum and minimum bounds for requests.
+   - Default limit and requests values.
+
+Manifest:
+-----------
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cpu-and-memory-limits
+spec:
+  limits:
+  - default:
+      cpu: "1"
+      memory: 200Mi
+    defaultRequest:
+      cpu: 500m
+      memory: 100Mi
+    max:
+      cpu: "2"
+      memory: 1Gi
+    min:
+      cpu: 200m
+      memory: 3Mi
+    type: Container 
+
+Limits/Requests in Pods:
+-------------------------
+* Pods can specify either/both Limits and Requests.
+* If neither Limits  nor Requests are specified the default Limits/Requests defined in the 
+  LimitRange will be applied.
+
+Manifest:
+-----------
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+spec:
+  containers:
+  - name: nginx-pod
+    image: nginx
+	resources:
+	  limits:
+        cpu: "4"
+        memory: 500Mi
+      requests:
+        cpu: "1"
+        memory: 100Mi		
+
+
+Define Default Limits for Pods in a Namespace:
+-----------------------------------------------
+  
+Description:
+
+In this exercise, you define limits for containers and pods in the Kubernetes
+cluster and test those limits.
+
+Task 1: Create a New Namespace in the Cluster
+
+
+kubectl create namespace limit-example
+
+kubectl get namespaces
+
+
+Task 2: Examine the Manifest that Defines the Limits
+
+1. Enter the following commands to change to the directory containing the limits manifests and display the contents of the default-limits.yaml file:
+
+cd ~/course_files/KUB201/labs/manifests/limits
+cat default-limits.yaml
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cpu-and-memory-limits
+spec:
+  limits:
+  - default:
+      cpu: "1"
+      memory: 200Mi
+   defaultRequest:
+     cpu: 500m
+     memory: 100Mi
+   max:
+     cpu: "2"
+     memory: 1Gi
+   min:
+     cpu: 200m
+     memory: 3Mi
+   type: Container
+
+Notice that there is no resources section specifying limits or requests.
+
+
+Task 3: Apply the Limits to the Namespace
+
+cd ~/course_files/KUB201/labs/manifests/limits/
+
+kubectl -n limit-example apply -f default-limits.yaml
+
+kubectl -n limit-example describe limitranges
+
+namespace:
+kubectl describe namespace limit-example
+
+
+Summary:
+In this exercise, you created a new namespace in the Kubernetes cluster. You then defined default limits for pods and applied them to the new namespace.
+
+
+Define Limits for Containers and Pods:
+--------------------------------------
+Description:
+
+In this exercise, you test pod resource limits and requests in a namespace.
+
+Dependencies:
+The “Define Default Limits for Pods in a Namespace” exercise must be
+completed before performing this exercise.
+
+Task 1: Deploy a Pod with No Limits or Requests
+
+1. On the management workstation, in a terminal, enter the following
+commands to change to the directory containing the limits manifests and
+display the contents of the cpu-defaults-pod.yaml file:
+
+cd ~/course_files/KUB201/labs/manifests/limits
+cat cpu-defaults-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cpu-defaults-pod
+spec:
+  containers:
+  - name: cpu-defaults-pod
+    image: nginx
+
+Notice that there is no resources section specifying limits or requests.
+
+
+2. Enter the following command to attempt to deploy the pod:
+
+kubectl -n limit-example apply -f cpu-defaults-pod.yaml
+
+
+3. Enter the following command to display the pod’s specification:
+
+kubectl -n limit-example get pod cpu-defaults-pod --output=yaml
+
+You should see a resource section with the default limits and requests that are set for the namespace (limits.cpu: 1 and requests.cpu: 500m).
+
+Task 2: Deploy a Pod with Only a Limit
+
+1. Enter the following command to display the contents of the cpu-limit-onlypod.yaml file:
+cat cpu-limit-only-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cpu-limit-only-pod
+spec:
+  containers:
+  - name: cpu-limit-only-pod
+    image: nginx
+    resources:
+      limits:
+      cpu: "1"
+
+Notice that in the resources section only a cpu limit is specified.
+
+2. Enter the following command to attempt to deploy the pod:
+
+kubectl -n limit-example apply -f cpu-limit-only-pod.yaml
+
+3. Enter the following command to display the pod’s specification:
+
+kubectl -n limit-example get pod cpu-limit-only-pod --output=yaml
+
+You should see a resource section with the cpu requests set to the same value
+as the limit (limits.cpu: 1 and requests.cpu: 1).
+
+
+Task 3: Deploy a Pod with Only a Request
+
+1. Enter the following command to display the contents of the cpu-requestonly-pod.yaml file:
+
+cat cpu-request-only-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cpu-request-only-pod
+spec:
+  containers:
+  - name: cpu-request-only-pod
+    image: nginx
+    resources:
+      requests:
+        cpu: "0.75"
+
+Notice that in the resources section only a cpu request is specified.
+
+2. Enter the following command to attempt to deploy the pod:
+
+kubectl -n limit-example apply -f cpu-request-only-pod.yaml
+
+3. Enter the following command to display the pod’s specification:
+
+kubectl -n limit-example get pod cpu-request-only-pod --output=yaml
+
+You should see a resource section with the cpu requests set to value specified in the pod’s manifest and the limit is set to the namespace default
+(limits.cpu: 1 and requests.cpu: 750m).
+
+
+Task 4: Deploy a Pod Requesting Too Much CPU
+1. Enter the following command display the contents of the too-much-cpupod.yaml file:
+
+cat too-much-cpu-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: too-much-cpu-pod
+spec:
+  containers:
+  - name: too-much-cpu-pod
+    image: nginx
+    resources:
+      limits:
+      cpu: "3"
+      memory: 100Mi
+
+Notice that in the resources section the cpu limit is set to 3 (which is more than the maximum limit set in the LimitRange set on the namespace).
+
+2. Enter the following command to attempt to deploy the pod:
+
+kubectl -n limit-example apply -f too-much-cpu-pod.yaml
+
+You should see the pod “too-much-cpu-pod” was not created because it tried to exceed the maximum CPU limit of 2.
+
+Error from server (Forbidden): error when creating "too-much-cpupid.yaml": pods "too-much-cpu-pod" is forbidden: [maximum cpu usage per Container is 2, but limit is 3]
+
+
+Task 5: Deploy a Pod Requesting Too Little CPU
+
+1. Enter the following command display the contents of the too-little-cpupod.yaml file:
+cat too-little-cpu-pod.yaml
+
+Notice that in the resources section the cpu limit is set to 100m (which is less than the minimum limit set in the LimitRange set on the namespace).
+
+2. Enter the following command to attempt to deploy the pod:
+kubectl -n limit-example apply -f too-little-cpu-pod.yaml
+
+You should see the pod “too-little-cpu-pod” was not created because it tried to exceed the minimum CPU limit of 200m.
+
+Error from server (Forbidden): error when creating "too-littlecpu-pid.yaml": pods "too-litle-cpu-pod" is forbidden: [minimum cpu usage per Container is 200m, but limit is 100m]
+
+
+
+Task 6: Delete the Namespace and Objects from the Cluster
+
+1. Enter the following command to delete a namespace from the Kubernetes
+cluster:
+
+kubectl delete namespace limit-example
+
+
+2. Enter the following command to display the namespaces:
+kubectl get namespaces
+You should no longer see the namespace listed.
+
+Summary:
+In this exercise, you tested pod resource limits and requests in a namespace and then deleted the namespace
+
+
+
+Work with Resource Quotas:
+---------------------------
+
+			Limit Ranges												Resource Quotas
+		------------------                                         ------------------------
+* Created in a namespace but enforced on			    * Enforced on the aggregate resources consumed in 
+  a pod/container basis.                                  a namespace.
+* Enforced only on objects created after                * Enforced only on objects created after Quota is
+  LimitRange is created                                   created.
+* Apply only to specific resources (CPU,                * Apply to both amount of resources and number of
+  Memory, Storage, etc)                                   objects.
+                                                        * Can be used in conjunction with LimitRanges.
+                                                        * Can be set both resource limits and requests.
+
+Generally Scoped Quotas in a Namespace:
+---------------------------------------
+* Quotas can be scoped generally within a namespace.
+* Apply to all pods/containers in a namespace.
+
+Mnaifest:
+---------
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+spec:
+  hard:
+    cpu: “10”
+    memory: 20Gi
+    pods: 10
+ 
+kubectl describe quota
+ 
+Priority Scoped Quotas in a Namespace
+--------------------------------------
+* Quotas can be scoped based on priority.
+* Only apply to pods assigned that priority.
+
+Mnaifest:
+---------
+apiVersion: v1
+kind: List
+items:
+- apiVerison: v1
+  kind: ResourceQuota
+  metadata:
+    name: pods-high
+  spec:
+    hard:
+      cpu: "10"
+      memory: 200Gi
+      pods: 10
+    scopeSelector:
+      matchExpressions:
+      - operator: In
+        scopeName: PriorityClass
+        values: ["high"]
+- apiVerison: v1
+  kind: ResourceQuota
+  metadata:
+    name: pods-low
+  spec:
+    hard:
+      cpu: "5"
+      memory: 100Gi
+      pods: 5
+    scopeSelector:
+      matchExpressions:
+      - operator: In
+        scopeName: PriorityClass
+        values: ["low"]  		
+
+Pod Manifest:
+-------------
+apiVerison: v1
+kind: Pod
+metadata:
+  name: high-priority
+spec:
+  containers:
+  - name: high-priority
+   image: opensuse/leap
+   command: ["/bin/sh"]
+   args: ["-c", "while true; do echo hello; sleep 10;done"]
+   resources:
+     requests:
+	   cpu:
+	   memory: "1Gi"
+	 limits:
+       cpu: "1"
+       memory: "1Gi"
+  priorityClassName" low
+  
+
+8- 3 Define Quotas for a Namespace 
+-----------------------------------
+
+Description:
+
+In this exercise you create a new namespace and then create quotas for that
+namespace.
+
+Task 1: Create a New Namespace in the Cluster
+
+kubectl create namespace quota-example
+
+2. Enter the following command to display the quota usage for the new namespace:
+kubectl -n quota-example describe quota No quotas should be displayed as none have been defined for the namespace yet.
+
+
+Task 2: Examine the Manifests that Define the Quotas
+
+1. On the management workstation, in a terminal, enter the following commands to change to the directory containing the quota manifests and display the contents of the quota-high.yaml file
+
+cd ~/course_files/KUB201/labs/manifests/quotas
+
+cat quota-high.yaml
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pods-high
+spec:
+  hard:
+    cpu: “10”
+    memory: 20Gi
+    pods: 10
+
+Note the quotas for cpu, memory and pods.
+
+2. Enter the following command to display the contents of the quota-low.yaml file:
+
+cat quota-low.yaml
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+ name: pods-low
+spec:
+ hard:
+ cpu: “3”
+ memory: 3Gi
+ pods: 5
+
+Note the quotas for cpu, memory and pods. Compare them to the values for the quotas-high.yaml file.
+
+
+Task 3: Set Quotas for a Namespace
+
+1. Enter the following command to create the higher set of quotas on the namespace:
+
+kubectl -n quota-example create -f quota-high.yaml
+
+2. Enter the following command to display the quota usage for the new namespace:
+
+kubectl -n quota-example describe quota
+
+Notice that the quotas match those in the quota-high.yaml file.
+
+Summary:
+In this exercise you first created a new namespace and then verified that there are no quotas set in the namespcae. You then created quotas in the
+namespace and verified they were created.
+
+
+
+8- 4 Test Quotas for a Namespace
+--------------------------------
+Description:
+
+In this exercise you deploy an application in a namespace that has quotas set. You then scale the application out and back to see the effects the quotas have.
+
+Dependencies:
+
+The “Define Quotas for a Namespace” exercise must be completed before performing this exercise.
+
+Task 1: Deploy a Pod in a Namespace that Contains Quotas
+
+1. On the management workstation, in a terminal, enter the following commands to change to the directory containing the quota manifests and display the
+   contents of the opensuse-deployment.yaml file:
+
+cd ~/course_files/KUB201/labs/manifests/quotas
+cat opensuse-deployment.yaml
+
+Version: apps/v1
+kind: Deployment metadata:
+  name: opensuse-depoyment
+  labels:
+    env: "app"
+    owner: opensuse
+spec:
+  selector:
+    matchLabels:
+      app: opensuse
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: opensuse
+   spec:
+     containers:
+     - name: opensuse
+       image: opensuse/leap
+       command: ["/bin/sh"]
+       args: ["-c","while true; do echo hello; sleep 10; done"]
+       resources"
+         requests:
+           cpu: "1.5"
+           memory: "1Gi"
+         limits:
+           cpu: "2"
+           memory: "1Gi"
+
+Note the resource requests and limits.
+
+2. Enter the following command to deploy the pod:
+kubectl -n quota-example apply -f opensuse-deployment.yaml
+
+3. Enter the following commands to verify that pod was deployed:
+kubectl -n quota-example get deployments
+kubectl -n quota-example get pods
+
+You should see that there is a deployment with a single replica and a single opensuse pod.
+
+
+Task 2: Check Quota Usage in a Namespace
+1. Enter the following command to display the quota usage in the namespace:
+
+kubectl -n quota-example describe quota
+
+Name: pods-high
+Namespace: quota-example
+Resource Used Hard
+-------- ---- ----
+cpu 1500m 10
+memory 1Gi 20Gi
+pods 1 10
+
+Notice the quotas that are set. Also notice the values in the Used column for
+each quota.
+
+
+Task 3: Scale Out a Deployment
+
+1. Enter the following command to scale the deployment out:
+kubectl -n quota-example scale deployment opensuse-deployment --replicas=5
+The deployment should have been scaled.
+
+2. Enter the following command to display info about the deployment:
+kubectl -n quota-example get deployment
+You should see that there are 5 replicas running.
+
+3. Enter the following command to display the running pods:
+kubectl -n quota-example get pods
+You should see that there are indeed 5 pods running that correspond to the 5 replicas in the deployment.
+
+4. Enter the following command to display the quota usage in the namespace:
+kubectl -n quota-example describe quota
+
+You should see something like the following:
+Name: pods-high
+Namespace: quota-example
+Resource Used Hard
+-------- ---- ----
+cpu 7500m 10
+memory 5Gi 20Gi
+pods 5 10
+
+Notice the values in the Used column for each quota have increased but are below the hard quota.
+
+5. Enter the following command to scale the deployment again:
+kubectl -n quota-example scale deployment opensuse-deployment --replicas=10
+The deployment should have been scaled.
+
+6. Enter the following command to display info about the deployment:
+kubectl -n quota-example get deployment
+You should see that there are only 6 of the requested 10 replicas running.
+
+7. Enter the following command to display the running pods:
+kubectl -n quota-example get pods
+You should see that there are indeed 6 pods running that correspond to the 6 of 10 replicas in the deployment.
+
+8. Enter the following command to display the quota usage in the namespace:
+kubectl -n quota-example describe quota
+You should see something like the following:
+Name: pods-high
+Namespace: quota-example
+Resource Used Hard
+-------- ---- ----
+cpu 9 10
+memory 6Gi 20Gi
+pods 6 10
+
+Notice the values in the Used column for each quota have increased but are below the hard quota.
+Note that the deployment was not able to scale out to the requested 10 replicas because it would have exceeded the cpu quota set in the namespace.
+
+Task 4: Change Quotas for a Namespace
+
+1. Enter the following commands to create the lower set of quotas on the namespace:
+kubectl -n quota-example delete -f quota-high.yaml
+kubectl -n quota-example create -f quota-low.yaml
+The old quotas should have been deleted and the new quotas should have been created.
+
+2. Enter the following command to display the quota usage for the new namespace:
+
+kubectl -n quota-example describe quota
+You should see something like the following:
+Name: pods-low
+Namespace: quota-example
+Resource Used Hard
+-------- ---- ----
+cpu 9 3
+memory 6Gi 3Gi
+pods 6 5
+Notice that the quotas in the Hard column match those in the quotalow.yaml file.
+Also notice that the values in the Used column exceed the values in the Hard
+column because the pods were already running before the quotas changed.
+
+Task 5: Scale a Deployment Again
+
+1. Enter the following command to scale the deployment back:
+kubectl -n quota-example scale deployment opensuse-deployment --replicas=5
+The deployment should have been scaled back.
+
+2. Enter the following command to display info about the deployment:
+kubectl -n quota-example get deployment
+You should see that there are 5 of 5 replicas running.
+
+3. Enter the following command to display the running pods:
+kubectl -n quota-example get pods
+You should see that there are indeed 5 pods running that correspond to the 5 replicas in the deployment.
+
+4. Enter the following command to display the quota usage in the namespace:
+kubectl -n quota-example describe quota
+You should see something like the following:
+Name: pods-low
+Namespace: quota-example
+Resource Used Hard
+-------- ---- ----
+cpu 9 3
+memory 6Gi 3Gi
+pods 6 5
+Notice the values in the Used column for each quota have not changed even
+thought the deployment has been scaled back.
+
+5. Enter the following command to scale the deployment back even farther:
+kubectl -n quota-example scale deployment opensuse-deployment --replicas=2
+The deployment should have been scaled back.
+
+6. Enter the following command to display info about the deployment:
+kubectl -n quota-example get deployment
+You should see that there are 2 replicas running.
+
+7. Enter the following command to display the running pods:
+kubectl -n quota-example get pods
+You should see that there are indeed 2 pods running that correspond to the 2 replicas in the deployment.
+(Depending on how quickly you run the command after the scale back there may be some pods still in the Terminating state. Wait for these to finish
+terminating before moving on to the next step.)
+
+8. Enter the following command to display the quota usage in the namespace:
+kubectl -n quota-example describe quota
+You should see something like the following:
+Name: pods-low
+Namespace: quota-example
+Resource Used Hard
+-------- ---- ----
+cpu 3 3
+memory 2Gi 3Gi
+pods 2 5
+Notice the values in the Used column for each quota have decreased and are at or below the hard quota.
+
+9. Enter the following command to attempt to scale the deployment out again:
+kubectl -n quota-example scale deployment opensuse-deployment --replicas=3
+The deployment should have been scaled back.
+
+10. Enter the following command to display info about the deployment:
+kubectl -n quota-example get deployment
+You should see that there are only 2 of the 3 requested replicas running.
+
+11. Enter the following command to display the running pods:
+kubectl -n quota-example get pods
+You should see that there are indeed 2 pods running that correspond to the 2
+replicas in the deployment.
+
+12. Enter the following command to display the quota usage in the namespace:
+kubectl -n quota-example describe quota
+You should see something like the following:
+Name: pods-low
+Namespace: quota-example
+Resource Used Hard
+-------- ---- ----
+cpu 3 3
+memory 2Gi 3Gi
+pods 2 3
+
+Notice the values in the Used column for each quota have decreased and are at or below the hard quota.
+
+Task 6: Delete Quotas for a Namespace
+
+1. Enter the following command to create the lower set of quotas on the
+namespace:
+kubectl -n quota-example delete -f quota-low.yaml
+The quotas should have been deleted.
+
+2. Enter the following command to display the quota usage for the new
+namespace:
+kubectl -n quota-example describe quota
+You should see that there are no longer quotas for the namespace.
+
+3. Enter the following command to display info about the deployment:
+kubectl -n quota-example get deployment
+You should see that there are now 3 of the 3 requested replicas running. (Depending on how quickly you ran this command after deleting the quotas
+you may still see only 2 replicas running. Wait a minute and rerun the command and you should see the additional replica.)
+
+Task 7: Delete the Namespace
+
+1. Enter the following command to delete the namespace:
+kubectl delete namespace quota-example
+The namespace and all quotas/deployments/posts in it should should have
+been deleted.
+
+2. Enter the following command to verify that namespace was deleted:
+kubectl get namespace
+You should no longer see the namespace listed.
+
+Summary:
+In this exercise you deployed an application in a namespace that has quotas set. You then scaled out the application, first to a number that would adhere
+to the quotas and then to one that would exceed the quotas and observed the behavior. You then changed the quotas and observed what happened to
+the application as you tried to scale it back and then out again. You then deleted the quotas and observed what happened to the scaled out
+application. Finally you deleted the namespace.
+
+
+
+===============================================================================================================================================================
+===============================================================================================================================================================
+
+
+Role Based Access Control in K8S
+******************************************
+
+1. Understand Role Based Access Control in Kubernetes
+2. Authenticate to a K8S Cluster
+3. Configure RBAC in K8S
+
+
+RBAC:
+-----
+It is a set of functions in k8s that controls who/what is allowed to perform specific actions in k8s.
+ex:
+  - Users who want to deploy new applications.
+  - Applicstions who need to access specific resources.
+  - Services that need to be accessed by multiple applications. 
+  - System-wide application and user permissions.
+
+Three Elements of RBAC:
+-----------------------
+1. Subjects: users/groups- ServiceAccounts -Processes in pods or Host OS
+2. Resources: pod deployment, namespace servie, configmap secret.
+3. Operations(Verbs): list, get, describe, create, delete, patch...
+
+Users:
+------
+* Subjects that correlate to humans (or applications external to the cluster)
+* User/Group accounts are defined externally to the K8s Cluster:
+     - Certificate based, Token based, OAuth2, Basic Authentication.
+* User/group--> OAuth2--LDAP
+
+Service Accounts:
+------------------
+* Subjects that correlate  accounts created in the K8s cluster.
+* ServiceAccounts can be created for and used by applications or by human users.
+
+Roles:
+------
+* Link Operations with Resources.
+* Act as sets of permissions
+* Permissions add abilities but can not remove abilities.
+* Can be namespace scoped (Roles) or cluster scoped (ClusterRoles)
+  Ex:
+    - Resources: deployment, Servie, secret.
+    - perations(Verbs): get, create, delete.
+
+RoleBindings/ClusterRoleBindings:
+----------------------------------
+* Constructs that associate(binds) a subject to a Role or ClusterRole.
+ ex:
+    users/groups-
+	    apiVersion: rabc.authorization.k8s.io/v1
+		kind: Role
+		metadata:
+		  name: walnuts-pod-watcher
+		  namespce: walnuts
+		rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "watch", "list"]
+
+	    apiVersion: rabc.authorization.k8s.io/v1
+		kind: ClusterRole
+		metadata:
+		  name: pod-watcher
+		rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "watch", "list"]	  
+
+Create Service Accounts:
+------------------------
+
+Description:
+
+In this exercise you create service accounts for some additional Kubernetes users.
+
+Task 1: Create a New Namespace
+
+1. On the management workstation, in a terminal, enter the following command to create a new namespace for the users:
+
+kubectl create namespace walnuts
+
+Task 2: Create Service Account Manifests
+1. On the management workstation, in the text editor of your choice, create/open the file ~/charlie-sa.yaml to be edited
+
+2. Enter the following in the file:
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+ namespace: walnuts
+ name: charlie
+
+3. Save the file
+
+4. Repeat the previous steps to create manifests for the following users:
+lucy
+linus
+Name the manifest files USERNAME-sa.yaml (where USERNAME is the user's name) and modify the name: key to match the user's name.
+
+Task 3: Create the Service Accounts in the Namespace
+
+1. Enter the following commands to create the service accounts in Kubernetes:
+
+kubectl apply -f ~/charlie-sa.yaml
+kubectl applu -f ~/lucy-sa.yaml
+kubectl apply -f ~/linus-sa.yaml
+
+2. Enter the following command to display the service accounts in the namespace:
+
+kubectl get serviceaccounts -n walnuts
+
+You should see the three new service accounts displayed.
+
+Summary:
+In this exercise you createD a new namespace. You then created manifests for new service accounts and then added the service accounts to the cluster.
+
+
+Authenticate to a K8s Cluster:
+-------------------------------
+
+Kubeconfig file:
+----------------
+* Used to authenticate to the cluster:
+    - Default location: ~/.kube/config
+	- Can be supplied on the CLI or environment variable.
+
+* Contains 3 main sections:
+   - Clusters
+   - Contexts
+   - Users
+ 
+Example-1:
+----------
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: <ca certificate>
+    server: <server URL and port>
+  name: <CLUSTER_NAME>
+contexts:
+- context:
+    cluster: <CLUSTER_NAME>
+    user: <user name>
+  name: CLUSTER_NAME
+current-context: <context name>
+kind Config
+preferences: {}
+users:
+- name: <user/serviceaccount name>
+  user:
+    token: <authentication token>
+
+Example-2: Kubeconfig File Example: User
+-----------------------------------------
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: ...
+    server: https://control101.example.com:6443
+  name: local
+contexts:
+- context:
+    cluster: local
+    user: charlie
+  name: local
+current-context: local
+kind Config
+preferences: {}
+users:
+- name: charlie
+  user:
+    auth-provider:
+	  config:
+	    client-id: oidc
+		client-secret: ...
+		id-token: ...
+		idp-issuer-url: https://master01.example.com:32000
+		refresh-token: ...
+	  name: oidc	
+
+Example-3: Kubeconfig File Example: Service Account
+---------------------------------------------------
+apiVerison: v1
+clusters:
+- cluster:
+    certificate-suthority-data: <ca certificate>
+	server: https://control101.example.com:6443
+  name: local
+contexts:
+- context:
+    cluster: local
+    user: charlie
+  name: local
+current-context: local
+kind: Config
+preferences: {}
+users:
+- name: charlie
+  user:
+    token: <authentication token>  
+
+
+
+Create kubeconfig Files for Service Accounts:
+---------------------------------------------
+
+Task 1: Create kubeconfig Files
+
+1. On the management workstation, in a terminal, enter the following commands to retrieve the cluster info for a kubeconfig file:
+
+kubectl config view --flatten --minify | grep 'certificate-authority-data:'
+kubectl config view --flatten --minify | grep 'server:'
+kubectl config view --flatten --minify | grep 'name:' | head -1
+
+The output of the first command will be referred to as CA_DATA.
+The output of the second command will be referred to as SERVER.
+The output of the third command will be referred to as CLUSTER_NAME.
+
+2. Enter the following command to retrieve the secret for the charlie serviceaccount:
+kubectl describe serviceaccounts -n walnuts charlie | grep Tokens:  awk '{ print $2 }'
+
+We will refer to this as USER_SECRET.
+
+3. Enter the following command to retrieve the authentication token for the charlie user:
+kubectl describe secrets -n walnuts USER_SECRET | grep token: | awk '{ print $2 }'
+
+We will refer to this as USER_TOKEN.
+
+4. In the text editor of your choice, create/open the file ~/kubeconf-charlie to be edited
+
+5. Enter the following into the file (replacing the CA_DATA, SERVER, CLUSTER_NAME, USER_TOKEN lab variables with the values retrieved above):
+
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority-data: CA_DATA
+    server: SERVER
+  name: CLUSTER_NAME
+contexts:
+- context:
+    cluster: CLUSTER_NAME
+    user: charlie
+  name: CLUSTER_NAME
+current-context: CLUSTER_NAME
+users:
+- name: charlie
+  user:
+ token: USER_TOKEN
+
+6. Save the file
+
+7. Repeat steps 2-5 in this task for the following serviceaccounts (replacing 'charlie' with these serviceaccount names):
+lucy
+linus
+
+Summary:
+In this exercise you created the cluster and serviceaccount authentication information and used that to create kubeconfig files for the serviceaccounts
+
+
+
+Configure RBAC in K8s:
+-----------------------
+
+Role Manifest:
+
+* Roles are given a name.
+* Roles are scoped to a specific namespace.
+* Rules are comprised of:
+   - apiGroups
+   - resources
+   - verbs
+Ex:
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: walnuts
+  name: walnuts-pod-watcher
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+  
+kubectl apply -f walnuts-pod-watcher.yaml
+kubectl get roles -n walnuts
+
+kubectl describe role walnuts-pod-watcher -n walnuts
+
+
+ClusterRole Manifest:
+---------------------
+
+* ClusterRole are given a name.
+* ClusterRoles are not scoped to a specific namespace but are cluster scoped.
+* Rules are comprised of:
+   - apiGroups
+   - resources
+   - verbs
+
+Ex:
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-pod-watcher
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+
+kubectl apply -f cluster-pod-watcher.yaml
+kubectl get clusterroles
+
+kubectl describe clusterRole cluster-pod-watcher
+
+RoleBinding Manifest -Users:
+----------------------------
+* RolesBindings are given a name.
+* RoleBindings are scoped to a specific namespace.
+* RoleBindings associate a Subject with a Role.
+* When the subject is a User you must soecify the rbac apiGroup.
+
+
+ex:
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: charlie-walnuts-deployment-manager
+  namespace: walnuts
+subjects:
+- kind: User
+  name: charlie
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: walnuts-deployment-manager
+  apiGroup: rbac.authorization.k8s.io
+  
+kubectl apply -f charlie-read-walnuts-pods.yaml
+
+
+RoleBinding Manifest -ServiceAccounts:
+--------------------------------------
+
+* RolesBindings are given a name.
+* RoleBindings are scoped to a specific namespace.
+* RoleBindings associate a Subject with a Role.
+* When the subject is a SA you must soecify the Namespace in which it resides.
+
+Ex:
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: Charlie-read-walnut-pod
+  namespace: walnuts
+subjects:
+- kind: ServiceAccount
+  name: charlie
+  namespce: walnuts
+roleRef:
+ kind: Role
+ name: walnuts-pod-watcher
+ apiGroup: rbac.authorization.k8s.io
+
+
+ClusterRoleBinding Manifest -Users:
+----------------------------
+* ClusterRolesBindings are given a name
+* Cluster RoleBindings are not scoped to a specific namespace.
+* ClusterRoleBindings associate a Subject with a ClusterRole.
+* When the Subject is a User you must specify the rabc apiGroup
+
+ex:
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: charlie-read-pods
+subjects:
+- kind: User
+  name: charlie
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: cluster-pod-watcher
+  apiGroup: rbac.authorization.k8s.io
+
+kubectl apply -f charlie-read-pods.yaml
+
+
+
+ClusterRoleBinding Manifest -SA:
+-------------------------------
+* ClusterRolesBindings are given a name
+* Cluster RoleBindings are not scoped to a specific namespace.
+* ClusterRoleBindings associate a Subject with a ClusterRole.
+* When the Subject is a SA you must specify the Namespace in which it resides.
+
+ex:
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: charlie-read-pods
+subjects:
+- kind: ServiceAccount
+  name: charlie
+  namespace: walnuts
+roleRef:
+  kind: ClusterRole
+  name: cluster-pod-watcher
+  apiGroup: rbac.authorization.k8s.io
+
+kubectl apply -f charlie-read-pods.yaml
+
+
+
+
+
+3 Create Roles and ClusterRoles:
+---------------------------------
+
+Description:
+
+In this exercise you will create roles in a namespace and cluster roles all from manifests via the command line. You will then confirm that they are available.
+
+Dependencies:
+
+The walnuts namespace should have been created before performing this exercise.
+
+Task 1: Create Roles with from Manifests
+
+1. On the management workstation, in a terminal, enter the following commands to review a role manifest:
+
+cd ~/course_files/KUB201/labs/manifests/rbac/roles/
+cat role-walnuts-pod-watcher.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: walnuts
+  name: walnuts-pod-watcher
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+  
+cat role-walnuts-pod-manager.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: walnuts
+  name: walnuts-pod-manager
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list", "create", "update", "delete"]
+
+Pay attention to the resource specified in the resources: section and the verbs in the verbs: section as these will indicate what resource and which actions are allowed.
+If desired, repeat the cat command for the remaining yaml files in this directory paying attention to the resources and verbs in those files.
+
+2. Enter the following command to create the roles defined by the files in this directory:
+
+kubectl apply -f ./
+
+3. Enter the following command to display the roles created in the walnuts namespace:
+
+kubectl -n walnuts get roles
+
+You should see roles that correspond with the roles defined in the yaml files.
+
+4. Confirm that a role is now set:
+
+kubectl -n walnuts describe role walnuts-pod-watcher
+
+You should see the role and the permissions that it contains.
+You can repeat this command for each of the other roles created if desired.
+
+Task 2: Create Cluster Roles from Manifests
+
+1. On the management workstation, in a terminal, enter the following commands to review a cluster role manifest:
+
+cd ~/course_files/KUB201/labs/manifests/rbac/clusterroles/
+cat clusterrole-pod-watcher.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+ name: cluster-pod-watcher
+rules:
+- apiGroups: [""]
+ resources: ["pods"]
+ verbs: ["get", "watch", "list"]
+
+As you can see, there is no namespace listed for a cluster role. If desired, repeat the cat command for the remaining yaml files in this
+directory paying attention to the resources and verbs in those files.
+
+2. Enter the following command to create the cluster roles defined by the files in this directory:
+kubectl apply -f ./
+
+3. Enter the following command to display the cluster roles created in the cluster:
+kubectl get clusterroles
+
+You should see cluster roles that correspond with the roles defined in the yaml files.
+
+4. Confirm that the cluster role is now set:
+kubectl describe clusterrole cluster-pod-watcher
+
+Summary:
+--------
+In this exercise you created new roles and cluster roles for users that could be in your cluster. You then confirmed that each was available and what permissions they contain
+
+
+Create RoleBindings and ClusterRoleBindings
+--------------------------------------------
+
+Description:
+-------------
+
+In this exercise you will create role bindings and a cluster role bindings that bind users to a set of permissions contained in roles and cluster roles.
+
+Dependencies:
+The “Log Into a CaaS Platform Cluster” exercise must be completed before performing this exercise.
+
+Task 1: Create Role Bindings from Manifests
+
+1. On the management workstation, in a terminal, enter the following commands to review a role binding:
+
+cd ~/course_files/KUB201/labs/manifests/rbac/rolebindings/
+
+cat rolebinding-charlie-walnuts-deployment-manager.yaml
+You should see the following text:
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: charlie-walnuts-deployment-manager
+  namespace: walnuts
+subjects:
+- kind: User
+  name: charlie
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: walnuts-deployment-manager
+  apiGroup: rbac.authorization.k8s.io
+
+The subject is the user and the roleRef is the role that will be bound together in the walnuts namespace.
+
+If desired repeat the cat command for the remaining files in this directory taking note of which users are being linked to which roles.
+
+2. Enter the following command to create the role bindings from the file in this directory:
+kubectl apply -f ./
+The roles should have been created.
+
+3. Enter the following command to list the role bindings created in the namespace:
+kubectl -n walnuts get rolebindings
+
+You should see the role bindings listed that correspond to the role bindings listed in the yaml files.
+
+4. Enter the following command to review a role binding:
+
+kubectl -n walnuts describe rolebinding charlie-walnuts-deployment-manager
+
+The user charlie has been bound to the role walnuts-deployment-manager.
+If desired, repeat this command for the other role bindings that were created.
+
+
+Task 2: Create Cluster Role Bindings from Manifests
+1. On the management workstation, in a terminal, enter the following commands to review a cluster role binding:
+
+cd ~/course_files/KUB201/labs/manifests/rbac/clusterrolebindings/
+
+cat clusterrolebinding-linus-pod-watcher.yaml
+You should see the following text:
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: linus-cluster-pod-watcher
+  namespace: walnuts
+subjects:
+- kind: User
+  name: linus
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: cluster-pod-watcher
+  apiGroup: rbac.authorization.k8s.io
+
+The subject is the user and the roleRef is the role that will be bound together in the walnuts namespace.
+If desired repeat the cat command for the remaining files in this directory taking note of which users are being linked to which cluster roles.
+
+2. Enter the following command to deploy the cluster role binding:
+kubectl apply -f ./
+The cluster roles should have been created.
+
+3. Enter the following command to list the cluster role bindings created in the cluster:
+
+kubectl get clusterrolebindings
+
+You should see a bunch of existing cluster role bindings listed as well as the cluster role bindings listed that correspond to the role binding in the yaml files.
+
+4. Enter the following command to review a cluster role binding:
+
+kubectl describe clusterrolebinding linus-cluster-pod-watcher
+
+You should see the user bound to the cluster role.
+
+Summary:
+--------
+In this exercise you bound users with their respective roles using role bindings and cluster role bindings and confirmed that they are active
+
+
+Test RBAC in Kubernetes:
+-------------------------
+
+Description:
+
+In this exercise you test RBAC roles and cluster roles that were configured in a previous exercise.
+
+Dependencies:
+
+The exercises titles "create Service Accounts", "Create kubeconfig Files for Service Accounts", "Create Roles and ClusterRoles" and "Create RoleBindings
+and ClusterRoleBindings" must be completed before performing this exercise.
+
+Task 1: Test the RBAC Roles for the Charlie ServiceAccount
+
+1. On the management workstation, in a terminal, enter the following command to test the charlie serviceaccount's ability to view and manage deployments:
+
+kubectl --kubeconfig=/home/tux/kubeconf-charlie -n walnuts get deployments
+
+You should see "No resources found in walnuts namespace" displayed.
+
+This shows that the RBAC role assigned to the charlie serviceaccount allowed it to successfully get the deployments in the namespace. No deployments
+have been created in the namespace yet so the output of the command is correct.
+
+2. Enter the following commands to create a deployment in the namespace:
+
+cd ~/course_files/KUB201/labs/manifests/nginx/
+
+kubectl --kubeconfig=/home/tux/kubeconf-charlie -n walnuts apply -f nginx-deployment.yaml
+The deployment should be created.
+
+3. Try to get the deployments again:
+
+kubectl --kubeconfig=/home/tux/kubeconf-charlie -n walnuts get deployments
+
+You should see the state of the nginx-deployment displayed.
+
+4. Enter the following command to display the pods created by the deployment:
+
+kubectl --kubeconfig=/home/tux/kubeconf-charlie -n walnuts get pods
+
+You should see an error stating that the serviceaccount charlie cannot list the pods for the namespace. This is because the charlie serviceaccount was only
+assigned role relative to deployment resources but not pod resources in the namespace.
+
+5. Enter the following command to display roles for the namespace:
+
+kubectl -n walnuts get rolebindings
+
+You should see a role binding named charlie-walnuts-deploymentmanager listed.
+
+6. Enter the following command to display information about the role binding:
+
+kubectl -n walnuts describe rolebinding charlie-walnuts-deployment-manager
+
+You should see that the charlie serviceaccount is assigned a role named walnuts-deployment-manager.
+
+7. Enter the following command to display information about the role:
+
+kubectl -n walnuts describe role walnuts-deployment-manager
+
+You should see that the resources (deployments) and the verbs (get list watch create update patch delete) match up with the permission the charlie
+serviceaccount was able to do in the namespace.
+
+Task 2: Test the RBAC Rules for the Linus ServiceAccount
+
+1. Enter the following command to test the linus serviceaccount's ability to view and manage deployments:
+kubectl --kubeconfig=/home/tux/kubeconf-linus -n walnuts get deployments
+
+You should see an error stating that the serviceaccount linus cannot list the pods for the namespace.
+
+2. Enter the following command to display the pods created by the deployment in the namespace:
+
+kubectl --kubeconfig=/home/tux/kubeconf-linus -n walnuts get pods
+
+You should see the pods for the deployment displayed. This is because the linus serviceaccount was assigned a role that only allows listing of pods but
+not deployments in the namespace.
+
+Note the name of the first pod listed in the deployment. We will refer to this as:
+
+NGINX_POD
+
+3. Enter the following command to attempt to delete a pod created by the deployment:
+kubectl --kubeconfig=/home/tux/kubeconf-linus -n walnuts delete pod NGINX_POD
+
+You should see an error stating the linus serviceaccount does not have the permissions to delete a pod. This is because the role assigned to the linus
+serviceaccount only allows listing of pods.
+
+4. Enter the following command to display the pods created by the deployment in the entire cluster:
+kubectl --kubeconfig=/home/tux/kubeconf-linus get pods --all-namespaces
+
+You should see the pods in all namespaces displayed. This is because the linus serviceaccount was assigned a cluster role that only allows listing of pods
+which applies to all namespaces.
+
+5. Enter the following command to display roles for the namespace:
+kubectl -n walnuts get rolebindings
+You should see a role binding named linus-walnuts-pod-watcher listed.
+
+6. Enter the following command to display information about the role binding:
+kubectl -n walnuts describe rolebinding linus-walnuts-pod-watcher
+You should see that the charlie serviceaccount is assigned a role named walnuts-pod-watcher.
+
+7. Enter the following command to display information about the role:
+kubectl -n walnuts describe role walnuts-pod-watcher
+You should see that the resources (pods) and the verbs (get list watch) match up with the permission the linus serviceaccount was able to do in the namespace.
+
+8. Enter the following command to display cluster roles for the namespace:
+kubectl get clusterrolebindings
+You should see a cluster role binding named linus-cluster-pod-watcherlisted.
+
+9. Enter the following command to display information about the role binding:
+kubectl describe clusterrolebinding linus-cluster-pod-watcher
+You should see that the charlie serviceaccount is assigned a role named cluster-pod-watcher.
+
+10. Enter the following command to display information abut the role:
+kubectl describe clusterrole cluster-pod-watcher
+You should see that the resources (pods) and the verbs (get list watch) match up with the permission the linus serviceaccount was able to do in all namespaces.
+
+Task 3: Test the RBAC Rules for the Lucy ServiceAccount
+1. Using the commands used in the previous tasks, explore what actions the lucy serviceaccount is able to perform (using the lucy serviceaccount's kubeconfig
+file: ~/kubeconf-lucy)
+What is lucy able to do relative to pods in the namespace?
+What is lucy able to do relative to deployments in the namespace?
+What is lucy able to do relative to other resources in the namespace?
+What roles and cluster role bindings enable lucy to perform these actions?
+
+ summary:
+ --------
+* In this exercise you tested the RBAC roles and cluster roles for the charlie and linus servicaccounts. You verified that the permissions in the roles and cluster
+  roles assigned to the serviceaccounts matched up with the actions they were actually able to perform. You then explored in a free form fashion what actions the lucy serviceaccount is able to perform.
+
+
+
+
+===============================================================================================================================================================
+===============================================================================================================================================================
+
